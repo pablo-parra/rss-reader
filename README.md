@@ -47,6 +47,7 @@ Set in `src/main/resources/application.properties`:
 | Property | Default | Purpose |
 |---|---|---|
 | `app.fetch.cron` | `0 0 7 * * *` | Daily fetch schedule |
+| `app.fetch.block-internal-hosts` | `true` | Refuse loopback and link-local addresses when fetching (set `false` to read feeds served from the same machine) |
 | `app.dashboard.read-visible-days` | `7` | Days a read article stays on the dashboard |
 | `app.content.min-text-length` | `600` | Minimum text length before content is treated as paywalled |
 | `app.archive.base-url` | `https://archive.ph` | Snapshot lookup service |

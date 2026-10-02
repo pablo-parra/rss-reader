@@ -60,6 +60,13 @@ public class Source {
         recordFetch(FetchStatus.UNSUPPORTED, at);
     }
 
+    /** Applies a fresh type detection, e.g. after a source that was flagged unsupported became reachable again. */
+    public void redetect(SourceType type, String feedUrl) {
+        this.type = type;
+        this.feedUrl = feedUrl;
+        this.lastFetchStatus = type == SourceType.UNSUPPORTED ? FetchStatus.UNSUPPORTED : null;
+    }
+
     public Long getId() {
         return id;
     }

@@ -51,6 +51,21 @@ public class SourceController {
         return "redirect:/sources";
     }
 
+    @PostMapping("/sources/{id}/recheck")
+    public String recheck(@PathVariable Long id, RedirectAttributes redirect) {
+        try {
+            Source source = sourceService.recheck(id);
+            if (source.getType() == SourceType.UNSUPPORTED) {
+                redirect.addFlashAttribute("warning", "\"" + source.getName() + "\" is still unreachable or protected by a bot check");
+            } else {
+                redirect.addFlashAttribute("message", "\"" + source.getName() + "\" is supported again (" + source.getType() + ")");
+            }
+        } catch (IllegalArgumentException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/sources";
+    }
+
     @PostMapping("/sources/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes redirect) {
         sourceService.delete(id);

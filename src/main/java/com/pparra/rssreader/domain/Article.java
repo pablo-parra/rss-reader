@@ -67,6 +67,25 @@ public class Article {
         this.fetchedAt = fetchedAt;
     }
 
+    /**
+     * Read-only projection for the dashboard (used by a JPQL constructor expression): it leaves the large HTML
+     * columns out and must never be saved back.
+     */
+    public Article(Long id, Long sourceId, String url, String title, Instant publishedAt, Instant fetchedAt,
+            boolean read, Instant readAt, ContentOrigin contentOrigin, String contentFailureReason, String imageUrl) {
+        this.id = id;
+        this.sourceId = sourceId;
+        this.url = url;
+        this.title = title;
+        this.publishedAt = publishedAt;
+        this.fetchedAt = fetchedAt;
+        this.read = read;
+        this.readAt = readAt;
+        this.contentOrigin = contentOrigin;
+        this.contentFailureReason = contentFailureReason;
+        this.imageUrl = imageUrl;
+    }
+
     public void markRead(Instant at) {
         if (!read || readAt == null) {
             this.read = true;

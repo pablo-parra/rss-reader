@@ -10,6 +10,7 @@ import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +38,11 @@ public class SourceService {
         }
 
         String name = rawName == null || rawName.isBlank() ? hostOf(url) : rawName.trim();
-        return sourceRepository.save(new Source(url, name, detection.type(), detection.feedUrl(), Instant.now()));
+        try {
+            return sourceRepository.save(new Source(url, name, detection.type(), detection.feedUrl(), Instant.now()));
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("This source is already in your list");
+        }
     }
 
     public List<Source> list() {
@@ -48,6 +53,15 @@ public class SourceService {
     public void delete(Long id) {
         articleRepository.deleteBySourceId(id);
         sourceRepository.deleteById(id);
+    }
+
+    /** Runs type detection again, so a source wrongly flagged unsupported can be brought back. */
+    public Source recheck(Long id) {
+        Source source = sourceRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("That source no longer exists"));
+        Detection detection = detector.detect(source.getUrl());
+        source.redetect(detection.type(), detection.feedUrl());
+        return sourceRepository.save(source);
     }
 
     private void requireNew(String url) {
@@ -77,7 +91,11 @@ public class SourceService {
         if (uri.getHost() == null || uri.getHost().isBlank()) {
             throw new IllegalArgumentException("That doesn't look like a valid URL");
         }
-        return uri.toString();
+        String path = uri.getRawPath() == null || uri.getRawPath().equals("/") ? "" : uri.getRawPath();
+        String query = uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery();
+        String port = uri.getPort() < 0 ? "" : ":" + uri.getPort();
+        return scheme + "://" + uri.getRawAuthority().replaceFirst("^(.*@)?([^:]*)(:\\d+)?$", "$1$2").toLowerCase(Locale.ROOT)
+                + port + path + query;
     }
 
     private static String hostOf(String url) {

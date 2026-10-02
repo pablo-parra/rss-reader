@@ -22,14 +22,16 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class FetchServiceTest {
 
@@ -37,7 +39,14 @@ class FetchServiceTest {
     private final ArticleRepository articles = mock(ArticleRepository.class);
     private final RssFetcher rss = mock(RssFetcher.class);
     private final ScrapeFetcher scrape = mock(ScrapeFetcher.class);
-    private final FetchService service = new FetchService(sources, articles, rss, scrape);
+    private final PlatformTransactionManager txManager = mock(PlatformTransactionManager.class);
+    private final FetchService service = new FetchService(
+            sources, articles, rss, scrape, new TransactionTemplate(txManager));
+
+    @BeforeEach
+    void sourcesExist() {
+        when(sources.existsById(any())).thenReturn(true);
+    }
 
     private static Source source(String name, SourceType type) {
         return new Source("https://" + name + ".com", name, type, null, Instant.now());
@@ -50,8 +59,7 @@ class FetchServiceTest {
         when(rss.fetch(ana)).thenReturn(List.of(
                 new FeedItem("https://ana.com/old", "Old", null),
                 new FeedItem("https://ana.com/new", "New", Instant.parse("2026-01-01T00:00:00Z"))));
-        when(articles.existsBySourceIdAndUrl(any(), org.mockito.ArgumentMatchers.eq("https://ana.com/old")))
-                .thenReturn(true);
+        when(articles.findUrlsBySourceId(any())).thenReturn(List.of("https://ana.com/old"));
 
         FetchSummary summary = service.fetchAll().orElseThrow();
 
@@ -77,7 +85,6 @@ class FetchServiceTest {
         Source ana = source("ana", SourceType.RSS);
         when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
         when(rss.fetch(ana)).thenReturn(items(15));
-        when(articles.existsBySourceId(any())).thenReturn(false);
 
         FetchSummary summary = service.fetchAll().orElseThrow();
 
@@ -97,7 +104,7 @@ class FetchServiceTest {
         Source ana = source("ana", SourceType.RSS);
         when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
         when(rss.fetch(ana)).thenReturn(items(15));
-        when(articles.existsBySourceId(any())).thenReturn(true);
+        when(articles.findUrlsBySourceId(any())).thenReturn(List.of("https://ana.com/seed"));
 
         service.fetchAll();
 
@@ -217,8 +224,8 @@ class FetchServiceTest {
         existing.cacheFailure("Original page: blocked", Instant.now(), 2);
         when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
         when(rss.fetch(ana)).thenReturn(List.of(new FeedItem("https://ana.com/p", "P", null, "<p>full body</p>")));
-        when(articles.existsBySourceIdAndUrl(any(), org.mockito.ArgumentMatchers.eq("https://ana.com/p"))).thenReturn(true);
-        when(articles.findBySourceIdAndUrl(any(), org.mockito.ArgumentMatchers.eq("https://ana.com/p"))).thenReturn(Optional.of(existing));
+        when(articles.findUrlsBySourceId(any())).thenReturn(List.of("https://ana.com/p"));
+        when(articles.findBackfillCandidates(any())).thenReturn(List.of(existing));
 
         FetchSummary summary = service.fetchAll().orElseThrow();
 
@@ -236,8 +243,8 @@ class FetchServiceTest {
         existing.cacheContent("<p>from page</p>", com.pparra.rssreader.domain.ContentOrigin.ORIGINAL, Instant.now(), 2);
         when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
         when(rss.fetch(ana)).thenReturn(List.of(new FeedItem("https://ana.com/p", "P", null, "<p>full body</p>")));
-        when(articles.existsBySourceIdAndUrl(any(), any())).thenReturn(true);
-        when(articles.findBySourceIdAndUrl(any(), any())).thenReturn(Optional.of(existing));
+        when(articles.findUrlsBySourceId(any())).thenReturn(List.of("https://ana.com/p"));
+        when(articles.findBackfillCandidates(any())).thenReturn(List.of(existing));
 
         service.fetchAll();
 
@@ -251,8 +258,8 @@ class FetchServiceTest {
         existing.attachFeedContent("<p>first</p>");
         when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
         when(rss.fetch(ana)).thenReturn(List.of(new FeedItem("https://ana.com/p", "P", null, "<p>second</p>")));
-        when(articles.existsBySourceIdAndUrl(any(), any())).thenReturn(true);
-        when(articles.findBySourceIdAndUrl(any(), any())).thenReturn(Optional.of(existing));
+        when(articles.findUrlsBySourceId(any())).thenReturn(List.of("https://ana.com/p"));
+        when(articles.findBackfillCandidates(any())).thenReturn(List.of(existing));
 
         service.fetchAll();
 
@@ -283,9 +290,8 @@ class FetchServiceTest {
         when(rss.fetch(ana)).thenReturn(List.of(
                 new FeedItem("https://ana.com/a", "A", null, null, "https://ana.com/new-a.jpg"),
                 new FeedItem("https://ana.com/b", "B", null, null, "https://ana.com/new-b.jpg")));
-        when(articles.existsBySourceIdAndUrl(any(), any())).thenReturn(true);
-        when(articles.findBySourceIdAndUrl(any(), org.mockito.ArgumentMatchers.eq("https://ana.com/a"))).thenReturn(Optional.of(without));
-        when(articles.findBySourceIdAndUrl(any(), org.mockito.ArgumentMatchers.eq("https://ana.com/b"))).thenReturn(Optional.of(with));
+        when(articles.findUrlsBySourceId(any())).thenReturn(List.of("https://ana.com/a", "https://ana.com/b"));
+        when(articles.findBackfillCandidates(any())).thenReturn(List.of(without, with));
 
         service.fetchAll();
 
@@ -293,5 +299,51 @@ class FetchServiceTest {
         assertThat(with.getImageUrl()).isEqualTo("https://ana.com/old.jpg");
         verify(articles).save(without);
         verify(articles, never()).save(with);
+    }
+
+    @Test
+    void aSourceRemovedDuringTheFetchIsNotRecreatedNorGivenArticles() throws IOException {
+        Source ana = source("ana", SourceType.RSS);
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
+        when(rss.fetch(ana)).thenReturn(items(3));
+        when(sources.existsById(any())).thenReturn(false);
+
+        service.fetchAll();
+
+        verify(articles, never()).save(any());
+        verify(sources, never()).save(any());
+    }
+
+    @Test
+    void aFailureWhileStoringRollsTheWholeSourceBackAndCountsAsFailed() throws IOException {
+        Source ana = source("ana", SourceType.RSS);
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
+        when(rss.fetch(ana)).thenReturn(items(5));
+        when(articles.save(any(Article.class))).thenAnswer(call -> call.getArgument(0))
+                .thenAnswer(call -> call.getArgument(0))
+                .thenThrow(new IllegalStateException("database is locked"));
+
+        FetchSummary summary = service.fetchAll().orElseThrow();
+
+        assertThat(summary.failed()).isEqualTo(1);
+        assertThat(ana.getLastFetchStatus()).isEqualTo(FetchStatus.ERROR);
+        verify(txManager).rollback(any());
+    }
+
+    @Test
+    void sourcesAreDownloadedConcurrentlyButStoredInNameOrder() throws Exception {
+        Source a = source("a", SourceType.RSS);
+        Source b = source("b", SourceType.RSS);
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(a, b));
+        CountDownLatch bothStarted = new CountDownLatch(2);
+        when(rss.fetch(any())).thenAnswer(call -> {
+            bothStarted.countDown();
+            assertThat(bothStarted.await(5, TimeUnit.SECONDS)).as("both downloads overlap").isTrue();
+            return List.of();
+        });
+
+        FetchSummary summary = service.fetchAll().orElseThrow();
+
+        assertThat(summary.sourcesOk()).isEqualTo(2);
     }
 }
