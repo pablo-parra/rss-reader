@@ -45,6 +45,10 @@
                     <span th:if="${source.lastFetchStatus == null}">-</span>
                 </td>
                 <td>
+                    <form th:if="${source.type.name() == 'UNSUPPORTED'}" th:action="@{/sources/{id}/recheck(id=${source.id})}" method="post"
+                          data-loading="Checking the source...">
+                        <button type="submit">Check again</button>
+                    </form>
                     <form th:action="@{/sources/{id}/delete(id=${source.id})}" method="post">
                         <button type="submit" class="link-danger">Remove</button>
                     </form>

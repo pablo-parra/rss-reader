@@ -2,6 +2,7 @@ package com.pparra.rssreader.fetch;
 
 import java.util.List;
 import java.util.Locale;
+import org.jsoup.Jsoup;
 
 public final class ChallengeDetector {
 
@@ -9,6 +10,7 @@ public final class ChallengeDetector {
             List.of("just a moment", "cf-chl", "challenge-platform", "attention required", "cf-turnstile");
     private static final List<String> CAPTCHA_MARKERS = List.of("g-recaptcha", "h-captcha", "cf-turnstile");
     private static final int SHORT_PAGE_CHARS = 30_000;
+    private static final int CHALLENGE_TEXT_CHARS = 1_000;
 
     private ChallengeDetector() {
     }
@@ -22,7 +24,9 @@ public final class ChallengeDetector {
         if (blockedStatus && containsAny(body, CHALLENGE_MARKERS)) {
             return true;
         }
-        return body.length() < SHORT_PAGE_CHARS && containsAny(body, CAPTCHA_MARKERS);
+        // A captcha widget on a page with real content (comment form, article about captchas) is not a challenge.
+        return body.length() < SHORT_PAGE_CHARS && containsAny(body, CAPTCHA_MARKERS)
+                && Jsoup.parse(body).text().length() < CHALLENGE_TEXT_CHARS;
     }
 
     private static boolean containsAny(String body, List<String> markers) {

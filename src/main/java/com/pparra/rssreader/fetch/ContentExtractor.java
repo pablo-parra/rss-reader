@@ -224,7 +224,7 @@ public class ContentExtractor {
 
     private static void removeNoiseByAttributes(Element container, int total) {
         for (Element element : new ArrayList<>(container.getAllElements())) {
-            if (removable(element, container, total) && hasToken(element, NOISE_TOKENS)) {
+            if (hasToken(element, NOISE_TOKENS) && removable(element, container, total)) {
                 element.remove();
             }
         }
