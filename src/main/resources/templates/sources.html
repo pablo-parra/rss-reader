@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sources - RSS Reader</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+<main>
+    <nav th:replace="~{fragments :: nav('sources')}"></nav>
+    <h1>Sources</h1>
+
+    <th:block th:replace="~{fragments :: flash}"></th:block>
+
+    <form th:replace="~{fragments :: fetchForm('sources')}"></form>
+
+    <form class="add" th:action="@{/sources}" method="post">
+        <input type="text" name="url" placeholder="Blog or feed URL" required>
+        <input type="text" name="name" placeholder="Name (optional)">
+        <button type="submit">Add source</button>
+    </form>
+
+    <p class="empty" th:if="${#lists.isEmpty(sources)}">No sources yet. Add an author's blog or feed URL above.</p>
+
+    <div class="table-wrap" th:unless="${#lists.isEmpty(sources)}">
+        <table>
+            <thead>
+            <tr><th>Name</th><th>URL</th><th>Type</th><th>Last fetch</th><th></th></tr>
+            </thead>
+            <tbody>
+            <tr th:each="source : ${sources}">
+                <td th:text="${source.name}">Name</td>
+                <td><a th:href="${source.url}" th:text="${source.url}" target="_blank" rel="noopener">url</a></td>
+                <td>
+                    <span class="badge" th:classappend="${source.type.name() == 'UNSUPPORTED'} ? 'unsupported'"
+                          th:text="${source.type}">RSS</span>
+                    <small th:if="${source.type.name() == 'UNSUPPORTED'}">skipped by daily fetch</small>
+                </td>
+                <td>
+                    <span th:if="${source.lastFetchStatus != null}" th:text="${source.lastFetchStatus}">OK</span>
+                    <small th:if="${source.lastFetchedAt != null}"
+                           th:text="${#temporals.format(source.lastFetchedAt, 'yyyy-MM-dd HH:mm')}">time</small>
+                    <span th:if="${source.lastFetchStatus == null}">-</span>
+                </td>
+                <td>
+                    <form th:action="@{/sources/{id}/delete(id=${source.id})}" method="post">
+                        <button type="submit" class="link-danger">Remove</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${article.title} + ' - RSS Reader'">Article</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+<main class="reader">
+    <nav th:replace="~{fragments :: nav('')}"></nav>
+    <h1 th:text="${article.title}">Title</h1>
+    <p class="reader-meta">
+        <a th:href="${article.url}" target="_blank" rel="noopener">View on the original site &#8599;</a>
+        <span th:if="${content.origin.name() == 'ARCHIVE'}"> &middot; shown from an archive.ph snapshot</span>
+    </p>
+
+    <div th:if="${content.origin.name() == 'UNAVAILABLE'}" class="notice">
+        <p>This article could not be loaded: it is blocked and no readable archive.ph snapshot was available.</p>
+        <p>
+            <a th:href="${article.url}" target="_blank" rel="noopener">Open the original</a> &middot;
+            <a th:href="${content.archiveLookupUrl}" target="_blank" rel="noopener">Try archive.ph yourself</a>
+        </p>
+        <form th:action="@{/articles/{id}/retry(id=${article.id})}" method="post">
+            <button type="submit">Retry</button>
+        </form>
+    </div>
+
+    <div th:if="${content.html != null}" th:utext="${content.html}"></div>
+
+    <p th:if="${content.html != null}">
+        <a class="original" th:href="${article.url}" target="_blank" rel="noopener">Read the full post on the original site &#8599;</a>
+    </p>
+</main>
+</body>
+</html>

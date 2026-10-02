@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<nav th:fragment="nav(active)">
+    <a th:href="@{/}" th:classappend="${active == 'dashboard'} ? 'active'">Dashboard</a>
+    <a th:href="@{/sources}" th:classappend="${active == 'sources'} ? 'active'">Sources</a>
+</nav>
+
+<th:block th:fragment="flash">
+    <p class="flash ok" th:if="${message}" th:text="${message}"></p>
+    <p class="flash warn" th:if="${warning}" th:text="${warning}"></p>
+    <p class="flash error" th:if="${error}" th:text="${error}"></p>
+</th:block>
+
+<form class="fetch" th:fragment="fetchForm(from)" th:action="@{/sources/fetch-now}" method="post"
+      onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='Fetching...'">
+    <input type="hidden" name="from" th:value="${from}">
+    <button type="submit">Fetch now</button>
+    <small>Refreshes every source now, the same as the daily fetch.</small>
+</form>
+
+</body>
+</html>

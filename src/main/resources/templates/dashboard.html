@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard - RSS Reader</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+<main>
+    <nav th:replace="~{fragments :: nav('dashboard')}"></nav>
+    <h1>Latest articles <small class="count" th:if="${totalUnread > 0}" th:text="'(' + ${totalUnread} + ' unread)'">(0 unread)</small></h1>
+
+    <th:block th:replace="~{fragments :: flash}"></th:block>
+
+    <form th:replace="~{fragments :: fetchForm('dashboard')}"></form>
+
+    <p class="empty" th:if="${#lists.isEmpty(groups)}">
+        You're all caught up. Hit "Fetch now" for new posts, or
+        <a th:href="@{/sources}">manage your sources</a>.
+    </p>
+
+    <section class="author" th:each="group : ${groups}">
+        <h2>
+            <span th:text="${group.source.name}">Author</span>
+            <small class="count" th:if="${group.unreadCount() > 0}" th:text="'(' + ${group.unreadCount()} + ' unread)'">(1 unread)</small>
+            <small class="count" th:if="${group.unreadCount() == 0}">(all read)</small>
+        </h2>
+        <ul class="articles">
+            <li th:each="article : ${group.articles}" th:classappend="${article.read} ? 'read' : 'unread'">
+                <span class="title">
+                    <span class="flag" th:if="${!article.read}" title="Unread" aria-label="Unread">&#9679;</span>
+                    <span class="flag" th:if="${article.read}" aria-hidden="true"></span>
+                    <a th:href="@{/articles/{id}(id=${article.id})}" th:text="${article.title}">Title</a>
+                </span>
+                <small th:text="${#temporals.format(article.publishedAt != null ? article.publishedAt : article.fetchedAt, 'yyyy-MM-dd')}">date</small>
+            </li>
+        </ul>
+    </section>
+</main>
+</body>
+</html>
