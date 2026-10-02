@@ -19,14 +19,14 @@ class ArticleContentFetcherTest {
     void returnsContentOfReadablePage() throws IOException {
         when(http.get(URL)).thenReturn(Pages.html(Pages.articleHtml("A readable full paragraph of text.", 40), URL));
 
-        assertThat(fetcher.fetchReadable(URL)).hasValueSatisfying(html -> assertThat(html).contains("readable full"));
+        assertThat(fetcher.fetchReadable(URL).html()).hasValueSatisfying(html -> assertThat(html).contains("readable full"));
     }
 
     @Test
     void blockedStatusYieldsEmpty() throws IOException {
         when(http.get(URL)).thenReturn(Pages.status(402, "Payment required", URL));
 
-        assertThat(fetcher.fetchReadable(URL)).isEmpty();
+        assertThat(fetcher.fetchReadable(URL).html()).isEmpty();
     }
 
     @Test
@@ -35,7 +35,7 @@ class ArticleContentFetcherTest {
                 + "x".repeat(150) + "</p></article></body></html>";
         when(http.get(URL)).thenReturn(Pages.html(teaser, URL));
 
-        assertThat(fetcher.fetchReadable(URL)).isEmpty();
+        assertThat(fetcher.fetchReadable(URL).html()).isEmpty();
     }
 
     @Test
@@ -43,20 +43,20 @@ class ArticleContentFetcherTest {
         String note = "<html><body><article><p>" + "A short but complete note. ".repeat(10) + "</p></article></body></html>";
         when(http.get(URL)).thenReturn(Pages.html(note, URL));
 
-        assertThat(fetcher.fetchReadable(URL)).isPresent();
+        assertThat(fetcher.fetchReadable(URL).html()).isPresent();
     }
 
     @Test
     void emptyShellYieldsEmpty() throws IOException {
         when(http.get(URL)).thenReturn(Pages.html("<html><body><div id=\"app\"></div></body></html>", URL));
 
-        assertThat(fetcher.fetchReadable(URL)).isEmpty();
+        assertThat(fetcher.fetchReadable(URL).html()).isEmpty();
     }
 
     @Test
     void ioFailureYieldsEmpty() throws IOException {
         when(http.get(anyString())).thenThrow(new IOException("boom"));
 
-        assertThat(fetcher.fetchReadable(URL)).isEmpty();
+        assertThat(fetcher.fetchReadable(URL).html()).isEmpty();
     }
 }

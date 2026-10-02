@@ -47,6 +47,15 @@ public class Article {
 
     private Integer contentVersion;
 
+    @Column(columnDefinition = "TEXT")
+    private String contentFailureReason;
+
+    @Column(columnDefinition = "TEXT")
+    private String feedContentHtml;
+
+    @Column(columnDefinition = "TEXT")
+    private String imageUrl;
+
     protected Article() {
     }
 
@@ -65,6 +74,11 @@ public class Article {
         }
     }
 
+    public void markUnread() {
+        this.read = false;
+        this.readAt = null;
+    }
+
     public void markReadSilently() {
         this.read = true;
     }
@@ -74,6 +88,37 @@ public class Article {
         this.contentOrigin = origin;
         this.contentFetchedAt = at;
         this.contentVersion = version;
+        this.contentFailureReason = null;
+    }
+
+    public void cacheFailure(String reason, Instant at, int version) {
+        cacheContent(null, ContentOrigin.UNAVAILABLE, at, version);
+        this.contentFailureReason = reason;
+    }
+
+    /** Stores the raw full content carried by the feed; a previously failed load is reset so it is retried with it. */
+    public void attachFeedContent(String html) {
+        this.feedContentHtml = html;
+        if (contentOrigin == ContentOrigin.UNAVAILABLE) {
+            this.contentHtml = null;
+            this.contentOrigin = null;
+            this.contentFetchedAt = null;
+            this.contentVersion = null;
+            this.contentFailureReason = null;
+        }
+    }
+
+    /** Sets the dashboard thumbnail unless one is already known; returns whether it changed. */
+    public boolean useImageIfMissing(String url) {
+        if (imageUrl == null && url != null && !url.isBlank()) {
+            this.imageUrl = url;
+            return true;
+        }
+        return false;
+    }
+
+    public boolean isContentUnavailable() {
+        return contentOrigin == ContentOrigin.UNAVAILABLE;
     }
 
     public Long getId() {
@@ -118,6 +163,18 @@ public class Article {
 
     public ContentOrigin getContentOrigin() {
         return contentOrigin;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public String getFeedContentHtml() {
+        return feedContentHtml;
+    }
+
+    public String getContentFailureReason() {
+        return contentFailureReason;
     }
 
     public Instant getContentFetchedAt() {

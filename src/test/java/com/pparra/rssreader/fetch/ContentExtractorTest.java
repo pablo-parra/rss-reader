@@ -217,4 +217,104 @@ class ContentExtractorTest {
 
         assertThat(clean).doesNotContain("<div></div>").doesNotContain("<ul></ul>").doesNotContain("<section></section>");
     }
+
+    private static final String SVG_PLACEHOLDER =
+            "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27529%27%20height%3D%27359%27%3E%3C%2Fsvg%3E";
+
+    @Test
+    void resolvesLazyImagesWhoseRealUrlIsInDataOrigSrcBehindASvgPlaceholder() {
+        String html = "<html><body><article><p>" + BODY + "</p>"
+                + "<img class=\"lazyload alignleft\" src=\"" + SVG_PLACEHOLDER + "\" "
+                + "data-orig-src=\"http://blog.com/wp-content/uploads/photo.jpg\" alt=\"Lazy photo\" width=\"529\" height=\"359\">"
+                + "</article></body></html>";
+
+        String clean = extractor.extract(html, "https://blog.com/p").html();
+
+        assertThat(clean).contains("http://blog.com/wp-content/uploads/photo.jpg").doesNotContain("data:image");
+    }
+
+    @Test
+    void aPlaceholderDataUriInSrcsetIsNeverUsedAsTheImageUrl() {
+        String html = "<html><body><article><p>" + BODY + "</p>"
+                + "<img src=\"" + SVG_PLACEHOLDER + "\" srcset=\"" + SVG_PLACEHOLDER + "\" alt=\"placeholder only\">"
+                + "<img src=\"" + SVG_PLACEHOLDER + "\" srcset=\"" + SVG_PLACEHOLDER + "\" "
+                + "data-srcset=\"/img/small.jpg 400w, /img/big.jpg 1200w\" alt=\"real\">"
+                + "</article></body></html>";
+
+        String clean = extractor.extract(html, "https://blog.com/p").html();
+
+        assertThat(clean).doesNotContain("placeholder only").doesNotContain("%3Csvg").doesNotContain("data:image");
+        assertThat(clean).contains("https://blog.com/img/big.jpg");
+    }
+
+    private static final String FEATURED_PAGE = "<html><body><header><img src=\"/logo.png\" width=\"300\" height=\"80\" alt=\"Site\"></header>"
+            + "<article><div class=\"hero\"><img class=\"attachment-full wp-post-image lazyload\" width=\"1512\" height=\"1030\" "
+            + "src=\"data:image/svg+xml,%3Csvg%3E%3C%2Fsvg%3E\" data-orig-src=\"https://blog.com/uploads/featured.jpg\" alt=\"Featured\"></div>"
+            + "<div class=\"post-content\"><p>{BODY}</p><p>{BODY}</p></div>"
+            + "<section class=\"related-posts\"><img class=\"wp-post-image\" src=\"/uploads/related-thumb.jpg\" width=\"500\" height=\"383\"></section>"
+            + "</article></body></html>";
+
+    @Test
+    void featuredImageAboveTheBodyIsShownAtTheTopOfTheReaderContent() {
+        String clean = extractor.extract(FEATURED_PAGE.replace("{BODY}", BODY), "https://blog.com/p").html();
+
+        assertThat(clean).contains("https://blog.com/uploads/featured.jpg").doesNotContain("data:image");
+        assertThat(clean.indexOf("featured.jpg")).isLessThan(clean.indexOf("genuinely long paragraph"));
+    }
+
+    @Test
+    void siteLogosAndRelatedPostThumbnailsAreNotTreatedAsTheFeaturedImage() {
+        String clean = extractor.extract(FEATURED_PAGE.replace("{BODY}", BODY), "https://blog.com/p").html();
+
+        assertThat(clean).doesNotContain("logo.png").doesNotContain("related-thumb.jpg");
+    }
+
+    @Test
+    void featuredImageIsNotRepeatedWhenTheBodyAlreadyContainsIt() {
+        String html = "<html><body><article><img class=\"wp-post-image\" src=\"/f.jpg\" width=\"800\" height=\"500\">"
+                + "<div class=\"post-content\"><p>" + BODY + "</p><img src=\"/f.jpg\" width=\"800\" height=\"500\"><p>" + BODY + "</p></div></article></body></html>";
+
+        String clean = extractor.extract(html, "https://blog.com/p").html();
+
+        assertThat(clean.split("f\\.jpg", -1).length - 1).isEqualTo(1);
+    }
+
+    @Test
+    void pagesWithoutAFeaturedImageStillExtractNormally() {
+        String html = "<html><body><article><div class=\"post-content\"><p>" + BODY + "</p></div></article></body></html>";
+
+        assertThat(extractor.extract(html, "https://blog.com/p").html()).doesNotContain("<img").contains("genuinely long paragraph");
+    }
+
+    @Test
+    void firstImageUrlPicksTheFirstRealContentImage() {
+        String html = "<p>x</p><img src=\"https://stats.example.com/pixel.gif\"><img src=\"data:image/gif;base64,AAAA\">"
+                + "<img class=\"avatar\" src=\"/a.png\"><img data-orig-src=\"/real.jpg\" src=\"data:image/svg+xml,%3Csvg%3E\" width=\"600\">";
+
+        assertThat(ContentExtractor.firstImageUrl(html, "https://blog.com/p")).isEqualTo("https://blog.com/real.jpg");
+    }
+
+    @Test
+    void firstImageUrlIsNullWhenThereIsNoUsableImage() {
+        assertThat(ContentExtractor.firstImageUrl("<p>text only</p><img src=\"/tiny.png\" width=\"8\">", "https://blog.com/p")).isNull();
+        assertThat(ContentExtractor.firstImageUrl(null, "https://blog.com/p")).isNull();
+    }
+
+    @Test
+    void featuredImageIsFoundEvenWhenPageWrappersOutsideTheArticleHaveNoiseWords() {
+        String html = "<html><body class=\"menu-text-align-center has-sidebar\"><div id=\"wrapper\" class=\"side-header social-icons\">"
+                + "<article><div class=\"slideshow\"><ul class=\"slides\"><li><a href=\"/big.jpg\"><img class=\"wp-post-image\" "
+                + "width=\"1512\" height=\"1030\" src=\"/uploads/hero.jpg\" alt=\"\"></a></li></ul></div>"
+                + "<div class=\"post-content\"><p>" + BODY + "</p></div></article></div></body></html>";
+
+        assertThat(extractor.extract(html, "https://blog.com/p").html()).contains("https://blog.com/uploads/hero.jpg");
+    }
+
+    @Test
+    void featuredImageInsideARelatedPostsBlockInsideTheArticleIsStillIgnored() {
+        String html = "<html><body><article><div class=\"related-posts\"><img class=\"wp-post-image\" width=\"500\" height=\"383\" "
+                + "src=\"/uploads/rel.jpg\"></div><div class=\"post-content\"><p>" + BODY + "</p></div></article></body></html>";
+
+        assertThat(extractor.extract(html, "https://blog.com/p").html()).doesNotContain("rel.jpg");
+    }
 }

@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -194,5 +195,103 @@ class FetchServiceTest {
         } finally {
             executor.shutdownNow();
         }
+    }
+
+    @Test
+    void newArticlesKeepTheFullContentCarriedByTheFeed() throws IOException {
+        Source ana = source("ana", SourceType.RSS);
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
+        when(rss.fetch(ana)).thenReturn(List.of(new FeedItem("https://ana.com/p", "P", null, "<p>full body</p>")));
+
+        service.fetchAll();
+
+        ArgumentCaptor<Article> saved = ArgumentCaptor.forClass(Article.class);
+        verify(articles).save(saved.capture());
+        assertThat(saved.getValue().getFeedContentHtml()).isEqualTo("<p>full body</p>");
+    }
+
+    @Test
+    void existingArticleWithoutFeedContentGetsItBackfilledAndAFailedLoadIsReset() throws IOException {
+        Source ana = source("ana", SourceType.RSS);
+        Article existing = new Article(1L, "https://ana.com/p", "P", null, Instant.now());
+        existing.cacheFailure("Original page: blocked", Instant.now(), 2);
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
+        when(rss.fetch(ana)).thenReturn(List.of(new FeedItem("https://ana.com/p", "P", null, "<p>full body</p>")));
+        when(articles.existsBySourceIdAndUrl(any(), org.mockito.ArgumentMatchers.eq("https://ana.com/p"))).thenReturn(true);
+        when(articles.findBySourceIdAndUrl(any(), org.mockito.ArgumentMatchers.eq("https://ana.com/p"))).thenReturn(Optional.of(existing));
+
+        FetchSummary summary = service.fetchAll().orElseThrow();
+
+        verify(articles).save(existing);
+        assertThat(existing.getFeedContentHtml()).isEqualTo("<p>full body</p>");
+        assertThat(existing.getContentOrigin()).isNull();
+        assertThat(existing.getContentFailureReason()).isNull();
+        assertThat(summary.newArticles()).isZero();
+    }
+
+    @Test
+    void backfillKeepsContentAlreadyLoadedFromThePage() throws IOException {
+        Source ana = source("ana", SourceType.RSS);
+        Article existing = new Article(1L, "https://ana.com/p", "P", null, Instant.now());
+        existing.cacheContent("<p>from page</p>", com.pparra.rssreader.domain.ContentOrigin.ORIGINAL, Instant.now(), 2);
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
+        when(rss.fetch(ana)).thenReturn(List.of(new FeedItem("https://ana.com/p", "P", null, "<p>full body</p>")));
+        when(articles.existsBySourceIdAndUrl(any(), any())).thenReturn(true);
+        when(articles.findBySourceIdAndUrl(any(), any())).thenReturn(Optional.of(existing));
+
+        service.fetchAll();
+
+        assertThat(existing.getContentHtml()).isEqualTo("<p>from page</p>");
+    }
+
+    @Test
+    void existingArticleThatAlreadyHasFeedContentIsNotTouched() throws IOException {
+        Source ana = source("ana", SourceType.RSS);
+        Article existing = new Article(1L, "https://ana.com/p", "P", null, Instant.now());
+        existing.attachFeedContent("<p>first</p>");
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
+        when(rss.fetch(ana)).thenReturn(List.of(new FeedItem("https://ana.com/p", "P", null, "<p>second</p>")));
+        when(articles.existsBySourceIdAndUrl(any(), any())).thenReturn(true);
+        when(articles.findBySourceIdAndUrl(any(), any())).thenReturn(Optional.of(existing));
+
+        service.fetchAll();
+
+        assertThat(existing.getFeedContentHtml()).isEqualTo("<p>first</p>");
+        verify(articles, never()).save(existing);
+    }
+
+    @Test
+    void newArticlesStoreTheThumbnailImageFromTheFeed() throws IOException {
+        Source ana = source("ana", SourceType.RSS);
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
+        when(rss.fetch(ana)).thenReturn(List.of(new FeedItem("https://ana.com/p", "P", null, null, "https://ana.com/t.jpg")));
+
+        service.fetchAll();
+
+        ArgumentCaptor<Article> saved = ArgumentCaptor.forClass(Article.class);
+        verify(articles).save(saved.capture());
+        assertThat(saved.getValue().getImageUrl()).isEqualTo("https://ana.com/t.jpg");
+    }
+
+    @Test
+    void existingArticleWithoutImageGetsItBackfilledButAnExistingOneIsKept() throws IOException {
+        Source ana = source("ana", SourceType.RSS);
+        Article without = new Article(1L, "https://ana.com/a", "A", null, Instant.now());
+        Article with = new Article(1L, "https://ana.com/b", "B", null, Instant.now());
+        with.useImageIfMissing("https://ana.com/old.jpg");
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
+        when(rss.fetch(ana)).thenReturn(List.of(
+                new FeedItem("https://ana.com/a", "A", null, null, "https://ana.com/new-a.jpg"),
+                new FeedItem("https://ana.com/b", "B", null, null, "https://ana.com/new-b.jpg")));
+        when(articles.existsBySourceIdAndUrl(any(), any())).thenReturn(true);
+        when(articles.findBySourceIdAndUrl(any(), org.mockito.ArgumentMatchers.eq("https://ana.com/a"))).thenReturn(Optional.of(without));
+        when(articles.findBySourceIdAndUrl(any(), org.mockito.ArgumentMatchers.eq("https://ana.com/b"))).thenReturn(Optional.of(with));
+
+        service.fetchAll();
+
+        assertThat(without.getImageUrl()).isEqualTo("https://ana.com/new-a.jpg");
+        assertThat(with.getImageUrl()).isEqualTo("https://ana.com/old.jpg");
+        verify(articles).save(without);
+        verify(articles, never()).save(with);
     }
 }

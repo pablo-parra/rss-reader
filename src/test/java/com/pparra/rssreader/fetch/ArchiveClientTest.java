@@ -25,34 +25,34 @@ class ArchiveClientTest {
     void returnsSnapshotContentAfterRedirect() throws IOException {
         when(http.get(LOOKUP)).thenReturn(Pages.html(Pages.articleHtml("Full archived paragraph text.", 40), "https://archive.ph/AbCdE"));
 
-        assertThat(client.fetchSnapshot(ORIGINAL)).hasValueSatisfying(html -> assertThat(html).contains("archived paragraph"));
+        assertThat(client.fetchSnapshot(ORIGINAL).html()).hasValueSatisfying(html -> assertThat(html).contains("archived paragraph"));
     }
 
     @Test
     void noSnapshotWhenStillOnLookupUrl() throws IOException {
         when(http.get(LOOKUP)).thenReturn(Pages.status(404, "No results", LOOKUP));
 
-        assertThat(client.fetchSnapshot(ORIGINAL)).isEmpty();
+        assertThat(client.fetchSnapshot(ORIGINAL).html()).isEmpty();
     }
 
     @Test
     void captchaCountsAsFailure() throws IOException {
         when(http.get(LOOKUP)).thenReturn(Pages.html("<html><div class=\"g-recaptcha\"></div></html>", "https://archive.ph/submit/"));
 
-        assertThat(client.fetchSnapshot(ORIGINAL)).isEmpty();
+        assertThat(client.fetchSnapshot(ORIGINAL).html()).isEmpty();
     }
 
     @Test
     void cloudflareChallengeCountsAsFailure() throws IOException {
         when(http.get(LOOKUP)).thenReturn(new FetchedPage(403, "text/html", "x", "https://archive.ph/", Map.of("cf-mitigated", "challenge")));
 
-        assertThat(client.fetchSnapshot(ORIGINAL)).isEmpty();
+        assertThat(client.fetchSnapshot(ORIGINAL).html()).isEmpty();
     }
 
     @Test
     void tooShortSnapshotIsRejected() throws IOException {
         when(http.get(LOOKUP)).thenReturn(Pages.html("<html><body><article><p>tiny</p></article></body></html>", "https://archive.ph/AbCdE"));
 
-        assertThat(client.fetchSnapshot(ORIGINAL)).isEmpty();
+        assertThat(client.fetchSnapshot(ORIGINAL).html()).isEmpty();
     }
 }

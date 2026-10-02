@@ -14,7 +14,7 @@
 </th:block>
 
 <form class="fetch" th:fragment="fetchForm(from)" th:action="@{/sources/fetch-now}" method="post"
-      onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='Fetching...'">
+      data-loading="Fetching new articles... this can take a few seconds">
     <input type="hidden" name="from" th:value="${from}">
     <button type="submit">Fetch now</button>
     <small>Refreshes every source now, the same as the daily fetch.</small>

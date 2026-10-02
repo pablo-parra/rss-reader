@@ -21,6 +21,9 @@ public class SchemaMigration {
     public void migrate() {
         addColumnIfMissing("article", "read_at", "TIMESTAMP");
         addColumnIfMissing("article", "content_version", "INTEGER");
+        addColumnIfMissing("article", "content_failure_reason", "TEXT");
+        addColumnIfMissing("article", "feed_content_html", "TEXT");
+        addColumnIfMissing("article", "image_url", "TEXT");
     }
 
     private void addColumnIfMissing(String table, String column, String type) {

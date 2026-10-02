@@ -78,6 +78,24 @@ public class FetchService {
         }
     }
 
+    /** Fills in feed content and thumbnail that an article stored by an earlier fetch is still missing. */
+    private void backfillFeedContent(Source source, FeedItem item) {
+        if (item.contentHtml() == null && item.imageUrl() == null) {
+            return;
+        }
+        articleRepository.findBySourceIdAndUrl(source.getId(), item.url()).ifPresent(existing -> {
+            boolean changed = false;
+            if (item.contentHtml() != null && existing.getFeedContentHtml() == null) {
+                existing.attachFeedContent(item.contentHtml());
+                changed = true;
+            }
+            changed |= existing.useImageIfMissing(item.imageUrl());
+            if (changed) {
+                articleRepository.save(existing);
+            }
+        });
+    }
+
     private int fetchSource(Source source) throws IOException {
         List<FeedItem> items = source.getType() == SourceType.RSS
                 ? rssFetcher.fetch(source)
@@ -91,8 +109,14 @@ public class FetchService {
         }
         int added = 0;
         for (FeedItem item : items) {
-            if (!articleRepository.existsBySourceIdAndUrl(source.getId(), item.url())) {
+            if (articleRepository.existsBySourceIdAndUrl(source.getId(), item.url())) {
+                backfillFeedContent(source, item);
+            } else {
                 Article article = new Article(source.getId(), item.url(), item.title(), item.publishedAt(), now);
+                if (item.contentHtml() != null) {
+                    article.attachFeedContent(item.contentHtml());
+                }
+                article.useImageIfMissing(item.imageUrl());
                 if (firstFetch && added >= FIRST_FETCH_UNREAD_LIMIT) {
                     article.markReadSilently();
                 }

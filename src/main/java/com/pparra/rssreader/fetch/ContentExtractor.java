@@ -40,6 +40,8 @@ public class ContentExtractor {
 
     private static final String BODY_SELECTORS = "[itemprop=articleBody], .entry-content, .post-content, "
             + ".article-body, .article__body, .story-body, .post-body, .article-content, #article-body";
+    private static final String FEATURED_IMAGES = "img.wp-post-image, .post-thumbnail img, .featured-image img, "
+            + ".entry-thumbnail img, .wp-block-post-featured-image img, [itemprop=image] img, img[itemprop=image]";
     private static final String STRIP_TAGS = "script, style, noscript, template, iframe, form, button, input, select, "
             + "textarea, svg, canvas, nav, aside, footer, dialog, audio, video, object, embed";
     private static final String HIDDEN = "[hidden], [aria-hidden=true], [style*=display:none], [style*=display: none]";
@@ -93,10 +95,69 @@ public class ContentExtractor {
         String lower = container.text().toLowerCase(Locale.ROOT);
         boolean markers = PAYWALL_MARKERS.stream().anyMatch(lower::contains);
 
+        prependFeaturedImage(container);
         cleanContainer(container);
 
         String clean = Jsoup.clean(container.html(), baseUrl, SAFELIST);
         return new ExtractedContent(clean, container.text().length(), declaredPaywalled, markers);
+    }
+
+    /** First usable content image of an HTML fragment (absolute URL), or null; used for dashboard thumbnails. */
+    public static String firstImageUrl(String html, String baseUrl) {
+        if (html == null || html.isBlank()) {
+            return null;
+        }
+        for (Element image : Jsoup.parse(html, baseUrl).select("img")) {
+            String src = realImageUrl(image);
+            if (src.isBlank() || isNotContentImage(image, src)) {
+                continue;
+            }
+            image.attr("src", src);
+            String absolute = image.absUrl("src");
+            if (absolute.startsWith("http://") || absolute.startsWith("https://")) {
+                return absolute;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Themes often render the featured image in the article header, outside the body container. Show it first,
+     * unless the body already contains it or it sits inside a noise block (related posts, sidebars...).
+     */
+    private static void prependFeaturedImage(Element container) {
+        Element scope = container.parents().stream().filter(p -> p.tagName().equals("article")).findFirst().orElse(null);
+        if (scope == null) {
+            return;
+        }
+        List<Element> order = scope.select("*");
+        int containerIndex = order.indexOf(container);
+        for (Element candidate : scope.select(FEATURED_IMAGES)) {
+            if (order.indexOf(candidate) > containerIndex || candidate.parents().contains(container)
+                    || insideNoiseWithin(candidate, scope)) {
+                continue;
+            }
+            String src = realImageUrl(candidate);
+            if (src.isBlank() || isNotContentImage(candidate, src)) {
+                continue;
+            }
+            boolean alreadyInBody = container.select("img").stream().anyMatch(i -> realImageUrl(i).equals(src));
+            if (!alreadyInBody) {
+                Element figure = new Element("figure");
+                figure.appendChild(new Element("img").attr("src", src).attr("alt", candidate.attr("alt")));
+                container.prependChild(figure);
+            }
+            return;
+        }
+    }
+
+    private static boolean insideNoiseWithin(Element element, Element scope) {
+        for (Element parent = element.parent(); parent != null && parent != scope; parent = parent.parent()) {
+            if (hasToken(parent, NOISE_TOKENS)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Element pickContainer(Document doc) {
@@ -238,7 +299,7 @@ public class ContentExtractor {
     }
 
     private static String realImageUrl(Element image) {
-        for (String attribute : List.of("data-src", "data-lazy-src", "data-original")) {
+        for (String attribute : List.of("data-src", "data-lazy-src", "data-original", "data-orig-src")) {
             String value = image.attr(attribute).trim();
             if (!value.isEmpty() && !value.startsWith("data:")) {
                 return value;
@@ -261,6 +322,9 @@ public class ContentExtractor {
 
     private static String lastSrcsetUrl(String srcset) {
         if (srcset == null || srcset.isBlank()) {
+            return "";
+        }
+        if (srcset.trim().startsWith("data:")) {
             return "";
         }
         String[] candidates = srcset.split(",");

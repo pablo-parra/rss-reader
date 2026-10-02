@@ -1,6 +1,6 @@
 :root { color-scheme: light dark; }
 body { font: 16px/1.5 system-ui, sans-serif; margin: 0; }
-main { max-width: 52rem; margin: 0 auto; padding: 1rem; }
+main { max-width: 64rem; margin: 0 auto; padding: 1rem; }
 nav { margin-bottom: 1rem; display: flex; gap: 1rem; }
 nav a.active { font-weight: 600; text-decoration: none; }
 input[type=text] { padding: .4rem .6rem; min-width: 14rem; }
@@ -36,3 +36,44 @@ ul.articles li.unread a { font-weight: 600; }
 ul.articles li.read a { color: #8a8a8a; }
 ul.articles li.read small { opacity: .5; }
 .original { display: inline-block; margin: 1rem 0; padding: .4rem .8rem; border: 1px solid #8886; border-radius: .4rem; text-decoration: none; }
+.failed-info { color: #c0392b; cursor: help; margin-left: .3rem; }
+.failure-reason { font-size: .85rem; opacity: .8; }
+
+/* Dashboard cards */
+ul.articles.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 1rem; }
+ul.articles.cards li { position: relative; display: flex; flex-direction: column; justify-content: flex-start; gap: 0;
+    padding: 0; border: 1px solid #8884; border-radius: .6rem; overflow: hidden; }
+ul.articles.cards li:hover { box-shadow: 0 2px 10px #0003; }
+.thumb { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #8882; }
+.thumb.placeholder { display: flex; align-items: center; justify-content: center; font-size: 2.2rem; font-weight: 600;
+    color: #8a8a8a; background: linear-gradient(135deg, #8882, #8885); }
+ul.articles.cards li.read .thumb { opacity: .55; }
+.card-body { display: flex; flex-direction: column; gap: .35rem; padding: .7rem .8rem .8rem; flex: 1; }
+ul.articles.cards .title { align-items: flex-start; }
+ul.articles.cards .title a { text-decoration: none; color: inherit; }
+ul.articles.cards li.read .title a { color: #8a8a8a; }
+ul.articles.cards .title a::after { content: ""; position: absolute; inset: 0; }
+ul.articles.cards .failed-info { position: relative; z-index: 2; }
+ul.articles.cards small { margin-top: auto; }
+
+/* Loading indicator */
+.loading-overlay { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 1rem; background: #000a; color: #fff; opacity: 0;
+    animation: overlay-in .2s ease .25s forwards; }
+.loading-overlay p { margin: 0; font-size: 1.05rem; }
+.spinner { width: 3rem; height: 3rem; border: .35rem solid #fff4; border-top-color: #fff; border-radius: 50%;
+    animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes overlay-in { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+
+/* Tile menu: revealed on hover or keyboard focus, as part of the tile */
+.card-menu { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; justify-content: flex-end;
+    padding: .5rem .6rem; background: linear-gradient(to top, #000c, #0000); opacity: 0; transform: translateY(.4rem);
+    transition: opacity .15s ease, transform .15s ease; pointer-events: none; }
+ul.articles.cards li:hover .card-menu, ul.articles.cards li:focus-within .card-menu { opacity: 1; transform: none; pointer-events: auto; }
+.card-menu form { margin: 0; }
+.card-menu button { font-size: .85rem; padding: .3rem .7rem; border-radius: 1rem; border: 1px solid #fff6; background: #000b; color: #fff; }
+.card-menu button:hover { background: #000; border-color: #fff; }
+@media (hover: none) { .card-menu { opacity: 1; transform: none; pointer-events: auto; background: none; position: static; padding: 0 .8rem .7rem; } }
+.anchor { position: absolute; top: 0; left: 0; width: 0; height: 0; scroll-margin-top: 1rem; }

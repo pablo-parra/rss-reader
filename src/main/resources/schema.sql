@@ -22,5 +22,8 @@ CREATE TABLE IF NOT EXISTS article (
     content_origin     TEXT,
     content_fetched_at TIMESTAMP,
     content_version    INTEGER,
+    content_failure_reason TEXT,
+    feed_content_html  TEXT,
+    image_url          TEXT,
     UNIQUE (source_id, url)
 );

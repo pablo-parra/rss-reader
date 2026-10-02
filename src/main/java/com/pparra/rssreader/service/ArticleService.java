@@ -46,6 +46,13 @@ public class ArticleService {
         return article;
     }
 
+    @Transactional
+    public Article markUnread(Long id) {
+        Article article = get(id);
+        article.markUnread();
+        return article;
+    }
+
     public List<ArticleGroup> dashboardGroups() {
         Map<Long, Source> sources = sourceRepository.findAll().stream()
                 .collect(Collectors.toMap(Source::getId, Function.identity()));

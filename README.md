@@ -6,9 +6,12 @@ A single-user, local-only web app that shows a daily digest of unread articles f
 
 - Add and remove sources; the app detects whether a URL is a feed or a scrape target, and flags Cloudflare-protected sites as unsupported
 - Daily scheduled fetch (default 07:00) plus a "Fetch now" button with a summary
-- Dashboard grouped by author, with unread/read state
-- Clean in-app reader (text and images only) with links to the original post
-- Paywall fallback via existing archive.ph snapshots (plain lookups only, never bypasses a check)
+- Dashboard grouped by author as image cards (thumbnail from the feed or the article), with unread/read state
+- Hover a tile to mark an article as read or unread without opening it
+- Loading spinner while articles open or sources are fetched
+- Clean in-app reader (text and the post's own images, featured image first) with links to the original post
+- Reads the full text carried by the feed when available (works for sites that challenge page requests), then the original page, then an existing archive.ph snapshot (plain lookups only, never bypasses a check)
+- Articles that cannot be loaded are logged and marked on the dashboard with a hover explanation
 - OPML import/export (planned, see backlog)
 
 ## Stack

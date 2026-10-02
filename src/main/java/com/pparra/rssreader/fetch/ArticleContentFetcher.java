@@ -1,7 +1,6 @@
 package com.pparra.rssreader.fetch;
 
 import java.io.IOException;
-import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -21,20 +20,29 @@ public class ArticleContentFetcher {
         this.minTextLength = minTextLength;
     }
 
-    public Optional<String> fetchReadable(String url) {
+    public ContentAttempt fetchReadable(String url) {
         FetchedPage page;
         try {
             page = http.get(url);
         } catch (IOException e) {
-            return Optional.empty();
+            return ContentAttempt.failed("request failed (" + e.getMessage() + ")");
         }
-        if (!page.isSuccess() || ChallengeDetector.isChallenge(page)) {
-            return Optional.empty();
+        if (ChallengeDetector.isChallenge(page)) {
+            return ContentAttempt.failed("blocked by a bot challenge such as Cloudflare (HTTP " + page.status() + ")");
+        }
+        if (!page.isSuccess()) {
+            return ContentAttempt.failed("HTTP " + page.status());
         }
         ExtractedContent content = extractor.extract(page.body(), page.finalUrl());
-        boolean blocked = content.declaredPaywalled()
-                || content.textLength() < MIN_USABLE_TEXT
-                || (content.textLength() < minTextLength && content.paywallMarkers());
-        return blocked ? Optional.empty() : Optional.of(content.html());
+        if (content.declaredPaywalled()) {
+            return ContentAttempt.failed("the page declares a paywall");
+        }
+        if (content.textLength() < MIN_USABLE_TEXT) {
+            return ContentAttempt.failed("no readable article text found (" + content.textLength() + " characters)");
+        }
+        if (content.textLength() < minTextLength && content.paywallMarkers()) {
+            return ContentAttempt.failed("paywall detected, only a teaser is visible (" + content.textLength() + " characters)");
+        }
+        return ContentAttempt.success(content.html());
     }
 }

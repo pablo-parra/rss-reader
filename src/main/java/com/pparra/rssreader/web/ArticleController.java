@@ -28,6 +28,19 @@ public class ArticleController {
         return "article";
     }
 
+    /** Marks an article read from the dashboard without opening it (no content is loaded). */
+    @PostMapping("/{id}/read")
+    public String markRead(@PathVariable Long id) {
+        articleService.markRead(id);
+        return "redirect:/#article-" + id;
+    }
+
+    @PostMapping("/{id}/unread")
+    public String markUnread(@PathVariable Long id) {
+        articleService.markUnread(id);
+        return "redirect:/#article-" + id;
+    }
+
     @PostMapping("/{id}/retry")
     public String retry(@PathVariable Long id) {
         contentService.retry(id);

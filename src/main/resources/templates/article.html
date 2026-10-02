@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title th:text="${article.title} + ' - RSS Reader'">Article</title>
     <link rel="stylesheet" th:href="@{/style.css}">
+    <script th:src="@{/app.js}" defer></script>
 </head>
 <body>
 <main class="reader">
@@ -17,11 +18,12 @@
 
     <div th:if="${content.origin.name() == 'UNAVAILABLE'}" class="notice">
         <p>This article could not be loaded: it is blocked and no readable archive.ph snapshot was available.</p>
+        <p class="failure-reason" th:if="${content.failureReason != null}" th:text="${content.failureReason}">reason</p>
         <p>
             <a th:href="${article.url}" target="_blank" rel="noopener">Open the original</a> &middot;
             <a th:href="${content.archiveLookupUrl}" target="_blank" rel="noopener">Try archive.ph yourself</a>
         </p>
-        <form th:action="@{/articles/{id}/retry(id=${article.id})}" method="post">
+        <form th:action="@{/articles/{id}/retry(id=${article.id})}" method="post" data-loading="Retrying...">
             <button type="submit">Retry</button>
         </form>
     </div>

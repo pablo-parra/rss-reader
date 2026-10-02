@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Dashboard - RSS Reader</title>
     <link rel="stylesheet" th:href="@{/style.css}">
+    <script th:src="@{/app.js}" defer></script>
 </head>
 <body>
 <main>
@@ -26,14 +27,32 @@
             <small class="count" th:if="${group.unreadCount() > 0}" th:text="'(' + ${group.unreadCount()} + ' unread)'">(1 unread)</small>
             <small class="count" th:if="${group.unreadCount() == 0}">(all read)</small>
         </h2>
-        <ul class="articles">
+        <ul class="articles cards">
             <li th:each="article : ${group.articles}" th:classappend="${article.read} ? 'read' : 'unread'">
-                <span class="title">
-                    <span class="flag" th:if="${!article.read}" title="Unread" aria-label="Unread">&#9679;</span>
-                    <span class="flag" th:if="${article.read}" aria-hidden="true"></span>
-                    <a th:href="@{/articles/{id}(id=${article.id})}" th:text="${article.title}">Title</a>
-                </span>
-                <small th:text="${#temporals.format(article.publishedAt != null ? article.publishedAt : article.fetchedAt, 'yyyy-MM-dd')}">date</small>
+                <span class="anchor" th:id="'article-' + ${article.id}"></span>
+                <img class="thumb" th:if="${article.imageUrl != null}" th:src="${article.imageUrl}" alt=""
+                     loading="lazy" referrerpolicy="no-referrer">
+                <div class="thumb placeholder" th:if="${article.imageUrl == null}" aria-hidden="true"
+                     th:text="${#strings.toUpperCase(#strings.substring(group.source.name, 0, 1))}">A</div>
+                <div class="card-body">
+                    <span class="title">
+                        <span class="flag" th:if="${!article.read}" title="Unread" aria-label="Unread">&#9679;</span>
+                        <span class="flag" th:if="${article.read}" aria-hidden="true"></span>
+                        <a th:href="@{/articles/{id}(id=${article.id})}" data-loading="Opening article..." th:text="${article.title}">Title</a>
+                        <span class="failed-info" th:if="${article.contentUnavailable}"
+                              th:title="'Could not be loaded. ' + (${article.contentFailureReason} ?: 'Open it for details.')"
+                              aria-label="Could not be loaded">&#9432;</span>
+                    </span>
+                    <small th:text="${#temporals.format(article.publishedAt != null ? article.publishedAt : article.fetchedAt, 'yyyy-MM-dd')}">date</small>
+                </div>
+                <div class="card-menu">
+                    <form th:if="${!article.read}" th:action="@{/articles/{id}/read(id=${article.id})}" method="post">
+                        <button type="submit" title="Mark as read without opening it">&#10003; Mark as read</button>
+                    </form>
+                    <form th:if="${article.read}" th:action="@{/articles/{id}/unread(id=${article.id})}" method="post">
+                        <button type="submit" title="Mark as unread again">&#9679; Mark as unread</button>
+                    </form>
+                </div>
             </li>
         </ul>
     </section>

@@ -149,4 +149,40 @@ class ArticleServiceTest {
         assertThat(article.isRead()).isTrue();
         assertThat(article.getReadAt()).isNull();
     }
+
+    @Test
+    void markUnreadClearsTheReadStateAndTheReadTimestamp() {
+        Article article = article(1, 1, "a", null, "2026-02-01T00:00:00Z");
+        article.markRead(Instant.now());
+        when(articles.findById(1L)).thenReturn(java.util.Optional.of(article));
+
+        service.markUnread(1L);
+
+        assertThat(article.isRead()).isFalse();
+        assertThat(article.getReadAt()).isNull();
+    }
+
+    @Test
+    void markUnreadOnAnUnreadArticleChangesNothing() {
+        Article article = article(1, 1, "a", null, "2026-02-01T00:00:00Z");
+        when(articles.findById(1L)).thenReturn(java.util.Optional.of(article));
+
+        service.markUnread(1L);
+
+        assertThat(article.isRead()).isFalse();
+        assertThat(article.getReadAt()).isNull();
+    }
+
+    @Test
+    void anArticleMarkedUnreadAndReadAgainGetsAFreshReadTimestamp() {
+        Article article = article(1, 1, "a", null, "2026-02-01T00:00:00Z");
+        Instant first = Instant.parse("2026-03-01T00:00:00Z");
+        Instant second = Instant.parse("2026-03-09T00:00:00Z");
+
+        article.markRead(first);
+        article.markUnread();
+        article.markRead(second);
+
+        assertThat(article.getReadAt()).isEqualTo(second);
+    }
 }
