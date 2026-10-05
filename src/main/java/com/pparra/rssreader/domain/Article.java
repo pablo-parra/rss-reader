@@ -143,6 +143,15 @@ public class Article {
         }
     }
 
+    /** Sets the publication date unless one is already known; returns whether it changed. */
+    public boolean usePublishedAtIfMissing(Instant at) {
+        if (publishedAt == null && at != null) {
+            this.publishedAt = at;
+            return true;
+        }
+        return false;
+    }
+
     public boolean isContentUnavailable() {
         return contentOrigin == ContentOrigin.UNAVAILABLE;
     }

@@ -190,7 +190,7 @@ public class FetchService {
         int added = 0;
         for (FeedItem item : items) {
             if (known.contains(item.url())) {
-                if (item.contentHtml() != null || item.imageUrl() != null) {
+                if (item.contentHtml() != null || item.imageUrl() != null || item.publishedAt() != null) {
                     if (backfillCandidates == null) {
                         backfillCandidates = backfillCandidates(source);
                     }
@@ -223,7 +223,7 @@ public class FetchService {
         return byUrl;
     }
 
-    /** Fills in feed content and thumbnail that an article stored by an earlier fetch is still missing. */
+    /** Fills in feed content, thumbnail and publication date that an article stored by an earlier fetch is missing. */
     private void backfill(Article existing, FeedItem item) {
         if (existing == null) {
             return;
@@ -234,6 +234,7 @@ public class FetchService {
             changed = true;
         }
         changed |= existing.useImageIfMissing(item.imageUrl());
+        changed |= existing.usePublishedAtIfMissing(item.publishedAt());
         if (changed) {
             articleRepository.save(existing);
         }
