@@ -48,7 +48,9 @@ Single-process monolith, local-only, no auth.
 - `SCRAPE`: Jsoup fetches the page, extracts candidate article links/titles heuristically (`<article>`, heading + anchor patterns)
 - `UNSUPPORTED`: skipped by the fetch job entirely; surfaced in UI as needing manual attention (e.g. Cloudflare-challenge detected — HTTP 403/503 with challenge markers)
 
-Source type is determined once at creation time by probing the URL (look for `<link rel="alternate" type="application/rss+xml">`; if none, and page fetch fails/returns a challenge page, mark `UNSUPPORTED`; otherwise `SCRAPE`).
+Source type is determined at creation time by probing the URL (look for `<link rel="alternate" type="application/rss+xml">`; if none, and page fetch fails/returns a challenge page, mark `UNSUPPORTED`; otherwise `SCRAPE`).
+
+The type can change later: "Check again" on the sources page re-runs detection for an `UNSUPPORTED` source, and a fetch of an `RSS` source that returns a web page re-detects once (see US-2).
 
 ## 2. Data Models
 
@@ -58,10 +60,11 @@ Source type is determined once at creation time by probing the URL (look for `<l
 | `id` | Long (PK) | auto-generated |
 | `url` | String | unique, the feed or page URL as entered |
 | `name` | String | display name (author/site), user-editable |
-| `type` | Enum: `RSS`, `SCRAPE`, `UNSUPPORTED` | set at creation, re-checkable |
+| `type` | Enum: `RSS`, `SCRAPE`, `UNSUPPORTED` | set at creation; re-detected by "Check again" or when an `RSS` source returns a web page |
 | `feedUrl` | String, nullable | resolved feed URL if different from `url` (discovered `<link rel="alternate">`) |
 | `lastFetchedAt` | Instant, nullable | updated after each fetch attempt |
 | `lastFetchStatus` | Enum: `OK`, `ERROR`, `UNSUPPORTED` | last run outcome |
+| `lastFetchError` | String (TEXT), nullable | why the last fetch failed or was blocked (shown under the status on the sources page); cleared by a successful fetch; the column is added to existing databases by `SchemaMigration` |
 | `createdAt` | Instant | |
 
 ### `Article`
@@ -71,17 +74,17 @@ Source type is determined once at creation time by probing the URL (look for `<l
 | `sourceId` | Long (FK → Source) | |
 | `url` | String | unique per source, used for dedupe |
 | `title` | String | |
-| `publishedAt` | Instant, nullable | from feed/page if available |
+| `publishedAt` | Instant, nullable | from the feed, or for scraped sources from the card's `<time>`, the page's JSON-LD or a date in the URL; filled in later by a fetch when it was missing; the dashboard falls back to `fetchedAt` |
 | `fetchedAt` | Instant | when we first saw it |
 | `read` | boolean | default `false` |
-| `readAt` | Instant, nullable | when the user first opened the article; null for articles stored as read by the first-fetch cap (so they never show on the dashboard) |
+| `readAt` | Instant, nullable | when the user first opened the article; null for articles stored as read by the first-fetch cap (they only appear in a source view if they are among its newest articles) |
 | `contentHtml` | String (TEXT), nullable | sanitized article body cached on first open (US-1); null until opened |
 | `contentOrigin` | Enum: `FEED`, `ORIGINAL`, `ARCHIVE`, `UNAVAILABLE`, nullable | where `contentHtml` came from, or that no source could be read |
 | `contentFetchedAt` | Instant, nullable | when the content was cached |
 | `feedContentHtml` | String (TEXT), nullable | raw full-article HTML carried by the feed entry (RSS `content:encoded` / Atom `<content>`); kept unsanitized so it can be re-extracted when `CONTENT_VERSION` changes; null when the feed only carries excerpts |
-| `imageUrl` | String (TEXT), nullable | dashboard thumbnail: taken from the feed entry at fetch time (first image of its HTML, else image enclosure, `media:content`, `media:thumbnail`), or from the first image of the loaded article content when the feed gave none; never overwritten once set |
+| `imageUrl` | String (TEXT), nullable | dashboard thumbnail: taken from the feed entry at fetch time (first image of its HTML, else image enclosure, `media:content`, `media:thumbnail`), for scraped sources, from the listing card (lazy-loaded images included). Opening an article replaces it with the page's declared main image (`og:image` / `twitter:image`, also for paywalled pages shown from the archive); only when there is none, the first content image fills a missing thumbnail (author photos, logos and lazy placeholders are skipped). Fetches only fill it when missing |
 | `contentFailureReason` | String (TEXT), nullable | why the last load attempt failed (original page and archive.ph reasons); set only with `UNAVAILABLE`, cleared on success; shown as a tooltip on the dashboard and in the reader notice |
-| `contentVersion` | Integer, nullable | version of the extraction rules that produced `contentHtml`; content with an older or missing version is re-extracted on next open (`ArticleContentService.CONTENT_VERSION`, bump it whenever the extractor changes) |
+| `contentVersion` | Integer, nullable | version of the extraction rules that produced `contentHtml`; content with an older or missing version is re-extracted on next open (`ArticleContentService.CONTENT_VERSION`, currently 4; bump it whenever the extractor changes) |
 
 **Constraints:** unique index on (`sourceId`, `url`) to prevent duplicate ingestion on repeated fetch runs.
 
@@ -99,6 +102,7 @@ rss-reader/
 │   │   │   │   ├── Source.java
 │   │   │   │   ├── SourceType.java
 │   │   │   │   ├── FetchStatus.java
+│   │   │   │   ├── ContentOrigin.java
 │   │   │   │   └── Article.java
 │   │   │   ├── config/
 │   │   │   │   └── SchemaMigration.java
@@ -108,25 +112,27 @@ rss-reader/
 │   │   │   ├── service/
 │   │   │   │   ├── SourceService.java
 │   │   │   │   ├── ArticleService.java
+│   │   │   │   ├── Dashboard.java / SourceUnread.java / ArticleRow.java
 │   │   │   │   ├── FetchService.java
 │   │   │   │   ├── FetchSummary.java
-│   │   │   │   ├── ArticleGroup.java
-│   │   │   │   ├── ArticleContentService.java
-│   │   │   │   └── OpmlService.java
+│   │   │   │   ├── ArticleContentService.java / ArticleContent.java
+│   │   │   │   ├── ArticleNotFoundException.java
+│   │   │   │   ├── OpmlService.java
+│   │   │   │   └── OpmlImportSummary.java / OpmlExport.java / InvalidOpmlException.java
 │   │   │   ├── fetch/
-│   │   │   │   ├── SourceTypeDetector.java
-│   │   │   │   ├── RssFetcher.java
-│   │   │   │   ├── ScrapeFetcher.java
-│   │   │   │   ├── FeedItem.java
-│   │   │   │   ├── ContentAttempt.java
-│   │   │   │   ├── SourceBlockedException.java
-│   │   │   │   ├── ArticleContentFetcher.java
-│   │   │   │   └── ArchiveClient.java
+│   │   │   │   ├── HttpFetcher.java / JdkHttpFetcher.java / HostGuard.java / FetchedPage.java
+│   │   │   │   ├── SourceTypeDetector.java / ChallengeDetector.java
+│   │   │   │   ├── RssFetcher.java / ScrapeFetcher.java / FeedItem.java
+│   │   │   │   ├── SourceBlockedException.java / NotAFeedException.java
+│   │   │   │   ├── ArticleContentFetcher.java / ArchiveClient.java / ContentAttempt.java
+│   │   │   │   └── ContentExtractor.java / ExtractedContent.java
 │   │   │   ├── scheduler/
 │   │   │   │   └── DailyFetchJob.java
 │   │   │   └── web/
 │   │   │       ├── DashboardController.java
-│   │   │       └── SourceController.java
+│   │   │       ├── ArticleController.java
+│   │   │       ├── SourceController.java
+│   │   │       └── UploadErrorAdvice.java
 │   │   └── resources/
 │   │       ├── application.properties
 │   │       ├── templates/
@@ -139,8 +145,10 @@ rss-reader/
 │   │           └── app.js
 │   └── test/
 │       └── java/com/pparra/rssreader/
-│           ├── fetch/          # RssFetcher / ScrapeFetcher unit tests
-│           └── service/        # ArticleService / SourceService unit tests
+│           ├── config/         # SchemaMigration
+│           ├── fetch/          # fetchers, extractor, detector, HostGuard, JdkHttpFetcher (local HTTP server)
+│           ├── service/        # service unit tests (Mockito)
+│           └── web/            # MockMvc flow tests and one acceptance-criteria class per story (Us1..Us5)
 └── data/
     └── app.db                  # SQLite file, gitignored
 ```
@@ -162,7 +170,7 @@ All endpoints are Thymeleaf-rendered pages / form-post actions handled by MVC co
 | `POST` | `/sources/import` | US-4 | Multipart upload (`file`, `.opml`); bulk-creates sources, then redirects to `/sources` with an import summary |
 | `GET` | `/sources/export` | US-4 | Downloads current sources as `subscriptions.opml` (`Content-Disposition: attachment`) |
 
-### US-3 — Dashboard and reader
+### US-3 / US-5 — Dashboard and reader
 
 **Dashboard**
 - `ArticleService.dashboard(sourceId)` returns a `Dashboard`: the source list (`SourceUnread` per source that has articles, alphabetical, from one `group by` query), the total unread count, the selected source (null for "All") and the tiles (`ArticleRow` = article + source). Articles whose source no longer exists are ignored.
@@ -191,13 +199,19 @@ All endpoints are Thymeleaf-rendered pages / form-post actions handled by MVC co
 ### US-2 — Fetching (daily job and manual button)
 
 - One code path: `DailyFetchJob` and the `/sources/fetch-now` button both call `FetchService.fetchAll()`. A `ReentrantLock.tryLock()` guards it, so overlapping runs (job + click, or a double click) are rejected rather than queued.
-- Sources run sequentially. A failure in one source is caught, logged and recorded (`lastFetchStatus = ERROR`) and never aborts the run.
+- Downloads run concurrently (virtual threads, at most 4 at a time, network time dominates); results are then stored one source at a time in name order, so the run's behavior stays predictable. A failure in one source is caught, logged and recorded (`lastFetchStatus = ERROR` plus the reason in `lastFetchError`) and never aborts the run.
+- Each source is stored in one transaction (`TransactionTemplate`): a failure part-way rolls the source back, so the next run is still its first fetch. If the source was removed while the run was in progress, its result is dropped and the source is not re-created.
 - `RSS`: fetch the feed (`feedUrl`, falling back to `url`) through `HttpFetcher`, parse with Rome (DOCTYPE disabled), resolve relative links against the feed URL, skip entries without an http(s) link. Each `FeedItem` also carries a thumbnail `imageUrl` (the first image of the entry HTML wins over `media:content`/`media:thumbnail`, because WordPress feeds only provide 150x150 crops there) and the entry's full content when present (`content:encoded` via Rome foreign markup, or Atom `<content>`); `description`/`summary` are treated as excerpts and ignored.
-- `SCRAPE`: fetch the page and take heading links (`h1`-`h3` anchors, or anchors wrapping a heading); if none, the longest link in each `<article>`. Keep only same-host links (ignoring `www.`) outside page-level `nav`/`header`/`footer`/`aside` (a `<header>` inside an `<article>` is fine), with a title of at least 15 characters; date from the nearest `<article>`'s `<time datetime>` when present.
-- Dedupe by (`sourceId`, `url`); new rows are `read = false`. New rows store the item's full content in `feedContentHtml`. An already stored article that has no `feedContentHtml` or `imageUrl` gets them backfilled when a later fetch carries it (a previously `UNAVAILABLE` result is reset so the reader retries with the feed content; content already loaded from the page is kept). The first fetch of a source (no stored articles yet) keeps only the 10 newest items unread (`FIRST_FETCH_UNREAD_LIMIT`, newest by `publishedAt`, feed order for undated items) and stores the rest with `read = true`, so a new source doesn't flood the dashboard.
-- A bot challenge or CAPTCHA on a source (`SourceBlockedException`) marks it `UNSUPPORTED` and it is skipped from then on; it is never retried or bypassed. Other errors (timeouts, 5xx, invalid feed) set `ERROR` and are retried at the next run.
+- `SCRAPE`: fetch the page and take heading links (`h1`-`h3` anchors, or anchors wrapping a heading); if none, the longest link in each `<article>`. Keep only same-host links (ignoring `www.`) outside page-level `nav`/`header`/`footer`/`aside` (a `<header>` inside an `<article>` is fine), with a title of at least 15 characters; the thumbnail comes from the nearest `<article>` card (`ContentExtractor.firstImageUrl`, which resolves lazy-loaded images and skips placeholders and author photos). The date comes, in order, from the card's `<time datetime>`, the page's JSON-LD (any object with `url` and `datePublished`, at any nesting, as in profile pages with `hasPart`), or a date in the URL path (`/2026-10-05/`, `/2026/10/05/`, taken at noon UTC).
+- Dedupe by (`sourceId`, `url`); new rows are `read = false`. New rows store the item's full content in `feedContentHtml`. Existing URLs and backfill candidates are loaded with one query each per source (no per-item lookups). An already stored article that has no `feedContentHtml`, `imageUrl` or `publishedAt` gets them backfilled when a later fetch carries it (a previously `UNAVAILABLE` result is reset so the reader retries with the feed content; content already loaded from the page is kept). The first fetch of a source (no stored articles yet) keeps only the 10 newest items unread (`FIRST_FETCH_UNREAD_LIMIT`, newest by `publishedAt`, feed order for undated items) and stores the rest with `read = true`, so a new source doesn't flood the dashboard.
+- A bot challenge or CAPTCHA on a source (`SourceBlockedException`) marks it `UNSUPPORTED` and it is skipped by fetches from then on; the app never bypasses the challenge. The user can run "Check again" (`POST /sources/{id}/recheck`, `SourceService.recheck`), which repeats type detection and brings the source back if it works now. `ChallengeDetector` treats a captcha marker as a challenge only on pages with almost no text (under 1000 characters), so a real page that embeds a captcha widget is not blocked. Other errors (timeouts, 5xx, invalid feed) set `ERROR` with the reason and are retried at the next run.
+- An `RSS` source whose URL returns a web page (`RssFetcher` throws `NotAFeedException`: HTML content type or `<!doctype html>`/`<html>` body) is re-detected once with `SourceTypeDetector`: a feed linked from the page becomes its `feedUrl`; otherwise the source becomes `SCRAPE`. The new type is saved with the fetch result. If detection finds nothing usable, the original error is reported. This repairs OPML entries that point to an author page and feeds that moved.
 - `FetchSummary`: sources fetched OK, new articles, failed, skipped (already or newly `UNSUPPORTED`). The sources page also shows each source's last fetch time and status.
 - The daily job only runs while the app is running; it does not catch up on missed runs. The button covers that.
+
+**HTTP fetching (`JdkHttpFetcher`)**
+- Redirects are followed by hand (at most 5), and `HostGuard` checks every hop: only http(s), and no loopback, link-local (cloud metadata at 169.254.169.254), unspecified or multicast addresses. Private LAN ranges stay allowed. `app.fetch.block-internal-hosts=false` disables the check. Limitation: the host name is resolved by the guard and again by the client, so DNS rebinding is not covered.
+- At most 2 MB of the body is read (a larger feed is truncated). The charset comes from the `Content-Type` header, else from the XML prolog or HTML meta tag, else UTF-8.
 
 ### US-1 (paywall part) — Transparent paywall fallback via archive.ph
 
@@ -205,10 +219,10 @@ The user clicks an article and reads it in-app; whether it was paywalled is not 
 
 1. If `contentHtml` is cached (current `contentVersion`), render it.
 2. **Feed content first:** if the article has `feedContentHtml`, run it through `ContentExtractor` (same cleaning and sanitizing as pages). When the cleaned text reaches `app.content.min-text-length` and no paywall is declared, cache it with `contentOrigin = FEED` and stop: no request to the original page or archive.ph is made. Shorter content is treated as an excerpt and the flow continues. This is why sites that challenge page requests (Cloudflare) but publish full-text feeds still read fine.
-3. `ArticleContentFetcher` GETs the original URL and extracts the main content with Jsoup (`<article>`, `og`/JSON-LD hints, largest text block).
+3. `ArticleContentFetcher` GETs the original URL and extracts the main content with Jsoup (`<article>`, `og`/JSON-LD hints, largest text block). The extractor also reads the page's declared main image (`og:image`, else `twitter:image`) into `ExtractedContent.pageImage`; `ContentAttempt` carries it for successful and failed attempts alike (a paywalled page still declares it).
 4. Treat the result as blocked when any of these hold: HTTP 401/402/403, a challenge page, JSON-LD `isAccessibleForFree: false`, or extracted text below a minimum length (configurable, e.g. 600 chars) alongside paywall markers.
 5. If blocked, `ArchiveClient` GETs `https://archive.ph/newest/<original URL appended as-is, fragment removed>`, follows redirects to the snapshot, and extracts content the same way. Snapshot pages are checked for challenge/CAPTCHA markers and for a "no results" page.
-6. Sanitize the extracted HTML with a Jsoup `Safelist` (no scripts, styles, forms or event handlers), cache it with `contentOrigin` (`FEED`, `ORIGINAL` or `ARCHIVE`), and render it in `article.html` with a link to the original.
+6. Sanitize the extracted HTML with a Jsoup `Safelist` (no scripts, styles, forms or event handlers), cache it with `contentOrigin` (`FEED`, `ORIGINAL` or `ARCHIVE`), and render it in `article.html` with a link to the original. When the original page declared a main image, it replaces the article's thumbnail (whichever origin the text came from, except `FEED`); the save re-reads the article first, so a read/unread change made during the slow load is not overwritten.
 7. If all attempts fail, store `UNAVAILABLE` together with `contentFailureReason`, log a warning (article id, URL, reason) and show the reader page with a clear notice plus links to the original URL and to `archive.ph/newest/...` for the user to open manually.
 
 Constraints:

@@ -16,7 +16,9 @@ Technical details per story: see [TECH_SPEC.md](TECH_SPEC.md).
 **Acceptance Criteria:**
 - Given a URL, the system detects and stores whether it's a true RSS/Atom feed or a scrape target
 - I can view the current list of sources and remove any of them
-- If a source is Cloudflare-protected/unsupported, it's added but clearly flagged as "unsupported" instead of failing silently
+- If a source is Cloudflare-protected/unsupported, it's added but clearly flagged as "unsupported" instead of failing silently, and I can ask the app to check it again later
+- When a fetch of a source fails, the sources list shows the reason (for example "HTTP 400" or "the URL returns a web page, not a feed")
+- If a source saved as a feed turns out to be a web page (for example an imported OPML entry that points to an author page), the app uses the feed that page links to, or scrapes the page, instead of failing on every run
 - When I open a paywalled article, it is shown in the app like any other post: the backend detects the block and fetches an existing archive.ph snapshot, so I don't need to know it was paywalled
 - If no snapshot can be read (none exists, or archive.ph shows a check), the app says so and offers links to the original and to archive.ph; it never tries to bypass a check or submit new pages
 
@@ -30,7 +32,7 @@ Technical details per story: see [TECH_SPEC.md](TECH_SPEC.md).
 **Acceptance Criteria:**
 - A scheduled job runs daily and fetches new items from every non-unsupported source (RSS parse or HTML scrape)
 - Already-seen articles (by URL) are not re-added as duplicates
-- Each fetched article is stored with title, URL, source, and an unread status defaulting to true
+- Each fetched article is stored with title, URL, source, and an unread status defaulting to true, plus its publication date and thumbnail image when the feed or the listing page provides them (articles stored earlier get them on a later fetch)
 - The first fetch of a new source keeps only its 10 newest posts as unread (older ones are stored as already read), so a new author doesn't flood the list
 - A "Fetch now" button runs the same process as the daily job on demand and shows a summary (new articles, failures, skipped sources); if a fetch is already running, it says so instead of starting another
 
@@ -46,6 +48,7 @@ Technical details per story: see [TECH_SPEC.md](TECH_SPEC.md).
 - Unread articles show an unread marker and bold title; articles I have read are shown in gray without the marker in the source views (see US-5), and the unread counts update
 - Clicking an article opens it in the app's reader view and marks it as read, without moving it in the list of its source view
 - The reader view shows only the title, the article text and the images that belong to the post; it leaves out related articles, share/social buttons, newsletter and subscribe boxes, comments, ads, author boxes, tags, menus and other page furniture
+- When I open an article, its tile picture becomes the post's own main image (never the author's photo or a site logo)
 - The reader view has a link (at the top and at the bottom) to the original post, so I can open it on the blog with all its extra content
 - Hovering a tile on the dashboard reveals a menu inside it to mark the article as read (if unread) or as unread (if read) without opening it; the unread counts update and the tile stays in place in a source view (in "All" it leaves the list, since "All" only lists unread articles)
 - The dashboard has the same "Fetch now" button as the sources page and returns to the same dashboard view with the fetch summary

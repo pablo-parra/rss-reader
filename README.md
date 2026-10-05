@@ -4,9 +4,11 @@ A single-user, local-only web app that shows a daily digest of unread articles f
 
 ## Features
 
-- Add and remove sources; the app detects whether a URL is a feed or a scrape target, and flags Cloudflare-protected sites as unsupported
-- Daily scheduled fetch (default 07:00) plus a "Fetch now" button with a summary
-- Dashboard with a source list on the left (unread count per author) and an "All" view of everything unread; image cards (thumbnail from the feed or the article) with unread/read state
+- Add and remove sources; the app detects whether a URL is a feed or a scrape target, and flags Cloudflare-protected sites as unsupported ("Check again" re-runs the detection)
+- The Sources page shows why a fetch failed; a source saved as a feed that returns a web page is re-detected (linked feed, otherwise scraping)
+- Daily scheduled fetch (default 07:00) plus a "Fetch now" button with a summary; sources are downloaded in parallel
+- Dashboard with a source list on the left (unread count per author) and an "All" view of everything unread; image cards (thumbnail from the feed, the listing page or the article's own main image) with unread/read state; a source view shows its 10 newest articles, read or not
+- Scraped sources get article dates from the page (`<time>`, JSON-LD or the URL) when the feed does not provide them
 - Hover a tile to mark an article as read or unread without opening it
 - Loading spinner while articles open or sources are fetched
 - Clean in-app reader (text and the post's own images, featured image first) with links to the original post
@@ -51,6 +53,10 @@ Set in `src/main/resources/application.properties`:
 | `app.dashboard.source-view-size` | `10` | Newest articles (read or unread) shown in a source view |
 | `app.content.min-text-length` | `600` | Minimum text length before content is treated as paywalled |
 | `app.archive.base-url` | `https://archive.ph` | Snapshot lookup service |
+
+## Security notes
+
+Single-user and local-only by design: there is no login or CSRF protection, so do not expose the port to untrusted networks (`docker-compose.yml` publishes 8080 on all interfaces). Server-side fetches refuse loopback and link-local addresses by default (`app.fetch.block-internal-hosts`), and OPML uploads are limited to 2 MB with DOCTYPEs rejected.
 
 ## Project docs
 
