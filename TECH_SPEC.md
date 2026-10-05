@@ -223,7 +223,7 @@ Constraints:
 - Mapping: `xmlUrl` → `Source.url` and `feedUrl`; `title` (fallback `text`, then host name) → `name`; `type` = `RSS` directly, so no type detection probe is run on import.
 - Duplicates (same `url` or `feedUrl` as an existing source, or repeated within the file) are skipped, not overwritten. Entries with a missing or malformed URL are counted as invalid.
 - The result page shows counts: added, skipped duplicates, skipped invalid. One bad entry never aborts the whole import.
-- Security: configure the XML parser to disable DTDs and external entities (XXE), and enforce a maximum upload size (e.g. 2 MB via Spring multipart config).
+- Security: configure the XML parser to disable DTDs and external entities (XXE), and enforce a maximum upload size of 2 MB, both via the Spring multipart config (rejected by `UploadErrorAdvice` with a flash error, since it fails before any controller runs) and in `OpmlService`. The `X-Sources-Left-Out` response header and the Sources page state how many non-feed sources are left out of an export.
 
 **Export**
 - One `<outline type="rss" text/title=name xmlUrl=feedUrl-or-url htmlUrl=url>` per `RSS` source, flat under `<body>`, so any reader can import the file.
@@ -233,7 +233,7 @@ Constraints:
 **Internal service interfaces** (called by controllers and the scheduled job — signatures only):
 
 - `SourceService`: `create(url, name)`, `list()`, `delete(id)`
-- `OpmlService`: `importOpml(InputStream)` returns an import summary (added / skipped duplicates / skipped invalid); `exportOpml()` returns the OPML document
+- `OpmlService`: `importOpml(InputStream)` returns an `OpmlImportSummary` (added / skipped duplicates / skipped invalid) and throws `InvalidOpmlException` (empty, over 2 MB, malformed, not OPML, or any DOCTYPE) before storing anything; `exportOpml()` returns an `OpmlExport` (XML, exported count, left-out count)
 - `ArticleService`: `dashboardGroups()`, `markRead(id)`, `markUnread(id)`
 - `ArticleContentService`: `load(articleId)` returns the cached or freshly fetched content plus its origin and failure reason (feed content, then original page, then archive.ph); `retry(articleId)` clears an `UNAVAILABLE` result and re-runs the flow
 - `FetchService`: `fetchAll()` returns `Optional<FetchSummary>` (empty when a run is already in progress) — iterates non-`UNSUPPORTED` sources, delegates to `RssFetcher`/`ScrapeFetcher`, inserts new `Article` rows, updates `Source.lastFetchedAt`/`lastFetchStatus`

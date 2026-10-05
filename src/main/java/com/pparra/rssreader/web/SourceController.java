@@ -5,12 +5,24 @@ import com.pparra.rssreader.domain.SourceType;
 import com.pparra.rssreader.service.FetchService;
 import com.pparra.rssreader.service.FetchSummary;
 import com.pparra.rssreader.service.SourceService;
+import com.pparra.rssreader.service.InvalidOpmlException;
+import com.pparra.rssreader.service.OpmlExport;
+import com.pparra.rssreader.service.OpmlImportSummary;
+import com.pparra.rssreader.service.OpmlService;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
@@ -18,16 +30,50 @@ public class SourceController {
 
     private final SourceService sourceService;
     private final FetchService fetchService;
+    private final OpmlService opmlService;
 
-    public SourceController(SourceService sourceService, FetchService fetchService) {
+    public SourceController(SourceService sourceService, FetchService fetchService, OpmlService opmlService) {
         this.sourceService = sourceService;
         this.fetchService = fetchService;
+        this.opmlService = opmlService;
     }
 
     @GetMapping("/sources")
     public String list(Model model) {
-        model.addAttribute("sources", sourceService.list());
+        List<Source> sources = sourceService.list();
+        model.addAttribute("sources", sources);
+        model.addAttribute("leftOutOfExport", sources.stream().filter(s -> s.getType() != SourceType.RSS).count());
+        model.addAttribute("exportable", sources.stream().filter(s -> s.getType() == SourceType.RSS).count());
         return "sources";
+    }
+
+    @PostMapping("/sources/import")
+    public String importOpml(@RequestParam("file") MultipartFile file, RedirectAttributes redirect) {
+        if (file.isEmpty()) {
+            redirect.addFlashAttribute("error", "Choose an OPML file to import");
+            return "redirect:/sources";
+        }
+        try (InputStream in = file.getInputStream()) {
+            OpmlImportSummary summary = opmlService.importOpml(in);
+            String text = "Import finished: " + summary.added() + " added, " + summary.skippedDuplicates()
+                    + " skipped as duplicates, " + summary.skippedInvalid() + " skipped as invalid";
+            redirect.addFlashAttribute(summary.added() == 0 && summary.skippedInvalid() > 0 ? "warning" : "message", text);
+        } catch (InvalidOpmlException e) {
+            redirect.addFlashAttribute("error", e.getMessage() + ". Nothing was imported.");
+        } catch (IOException e) {
+            redirect.addFlashAttribute("error", "The file could not be read. Nothing was imported.");
+        }
+        return "redirect:/sources";
+    }
+
+    @GetMapping("/sources/export")
+    public ResponseEntity<byte[]> exportOpml() {
+        OpmlExport export = opmlService.exportOpml();
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/x-opml+xml;charset=UTF-8"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"subscriptions.opml\"")
+                .header("X-Sources-Left-Out", String.valueOf(export.leftOut()))
+                .body(export.xml().getBytes(StandardCharsets.UTF_8));
     }
 
     @PostMapping("/sources")
