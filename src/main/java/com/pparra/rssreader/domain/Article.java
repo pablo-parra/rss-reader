@@ -136,6 +136,13 @@ public class Article {
         return false;
     }
 
+    /** Replaces the thumbnail with the main image the article's own page declares; ignored when there is none. */
+    public void replaceImage(String url) {
+        if (url != null && !url.isBlank()) {
+            this.imageUrl = url;
+        }
+    }
+
     public boolean isContentUnavailable() {
         return contentOrigin == ContentOrigin.UNAVAILABLE;
     }

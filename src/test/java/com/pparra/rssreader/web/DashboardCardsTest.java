@@ -11,6 +11,7 @@ import com.pparra.rssreader.domain.SourceType;
 import com.pparra.rssreader.fetch.HttpFetcher;
 import com.pparra.rssreader.repository.ArticleRepository;
 import com.pparra.rssreader.repository.SourceRepository;
+import com.pparra.rssreader.service.ArticleContentService;
 import java.time.Instant;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
@@ -108,7 +109,7 @@ class DashboardCardsTest {
     @Test
     void theReaderRetryButtonAlsoShowsTheLoadingIndicator() throws Exception {
         Article article = article("Blocked", null);
-        article.cacheFailure("Original page: blocked", Instant.now(), 3);
+        article.cacheFailure("Original page: blocked", Instant.now(), ArticleContentService.CONTENT_VERSION);
         articles.save(article);
 
         mvc.perform(get("/articles/" + article.getId()))

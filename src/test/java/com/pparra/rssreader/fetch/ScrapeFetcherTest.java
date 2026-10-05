@@ -107,4 +107,21 @@ class ScrapeFetcherTest {
 
         assertThatThrownBy(() -> fetcher.fetch(source)).isInstanceOf(IOException.class).hasMessageContaining("HTTP 404");
     }
+
+    @Test
+    void takesTheThumbnailFromTheListingCardIncludingLazyLoadedOnes() throws IOException {
+        page("""
+                <html><body>
+                <article>
+                  <figure><picture><img class="opening__placeholder" data-src="/tiny-48.jpg" alt="placeholder"></picture>
+                  <picture><img class="opening__img" data-srcset="/big-1440.jpg 1440w, /small-720.jpg 720w"></picture></figure>
+                  <h2><a href="/2026/03/first-long-article-title">First long article title</a></h2></article>
+                <article><h2><a href="/2026/03/second-long-article-title">Second long article title</a></h2></article>
+                </body></html>""");
+
+        var items = fetcher.fetch(source);
+
+        assertThat(items).extracting(FeedItem::imageUrl)
+                .containsExactly("https://www.news.com/small-720.jpg", null);
+    }
 }

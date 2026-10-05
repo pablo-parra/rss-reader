@@ -188,4 +188,38 @@ class ArticleContentServiceTest {
 
         assertThat(article.getImageUrl()).isNull();
     }
+
+    @Test
+    void thePageImageReplacesAThumbnailThatWasWrongOrMissing() {
+        article.useImageIfMissing("https://news.com/author-photo.jpg");
+        when(contentFetcher.fetchReadable("https://news.com/a"))
+                .thenReturn(ContentAttempt.success("<p>original</p>", "https://news.com/main.jpg"));
+
+        service.load(10L);
+
+        assertThat(article.getImageUrl()).isEqualTo("https://news.com/main.jpg");
+    }
+
+    @Test
+    void withoutAPageImageTheExistingThumbnailIsKept() {
+        article.useImageIfMissing("https://news.com/from-listing.jpg");
+        when(contentFetcher.fetchReadable("https://news.com/a")).thenReturn(ContentAttempt.success("<p>original</p>"));
+
+        service.load(10L);
+
+        assertThat(article.getImageUrl()).isEqualTo("https://news.com/from-listing.jpg");
+    }
+
+    @Test
+    void aPaywalledPageStillProvidesItsMainImageWhenTheArchiveSnapshotIsShown() {
+        article.useImageIfMissing("https://news.com/author-photo.jpg");
+        when(contentFetcher.fetchReadable("https://news.com/a"))
+                .thenReturn(ContentAttempt.failed("the page declares a paywall", "https://news.com/main.jpg"));
+        when(archiveClient.fetchSnapshot("https://news.com/a")).thenReturn(ContentAttempt.success("<p>snapshot</p>"));
+
+        ArticleContent content = service.load(10L);
+
+        assertThat(content.origin()).isEqualTo(ContentOrigin.ARCHIVE);
+        assertThat(article.getImageUrl()).isEqualTo("https://news.com/main.jpg");
+    }
 }

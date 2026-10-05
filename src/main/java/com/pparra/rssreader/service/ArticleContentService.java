@@ -20,7 +20,7 @@ public class ArticleContentService {
 
     private static final Logger log = LoggerFactory.getLogger(ArticleContentService.class);
 
-    static final int CONTENT_VERSION = 3;
+    public static final int CONTENT_VERSION = 4;
 
     private final ArticleService articleService;
     private final ArticleRepository articleRepository;
@@ -68,18 +68,27 @@ public class ArticleContentService {
         }
         ContentAttempt original = contentFetcher.fetchReadable(article.getUrl());
         if (original.html().isPresent()) {
-            store(articleId, article, fresh -> fresh.cacheContent(original.html().get(), ContentOrigin.ORIGINAL, Instant.now(), CONTENT_VERSION));
+            store(articleId, article, fresh -> {
+                fresh.cacheContent(original.html().get(), ContentOrigin.ORIGINAL, Instant.now(), CONTENT_VERSION);
+                fresh.replaceImage(original.imageUrl());
+            });
             return;
         }
         ContentAttempt snapshot = archiveClient.fetchSnapshot(article.getUrl());
         if (snapshot.html().isPresent()) {
             log.info("Article {} ({}): original not readable ({}), using archive.ph snapshot",
                     article.getId(), article.getUrl(), original.failure());
-            store(articleId, article, fresh -> fresh.cacheContent(snapshot.html().get(), ContentOrigin.ARCHIVE, Instant.now(), CONTENT_VERSION));
+            store(articleId, article, fresh -> {
+                fresh.cacheContent(snapshot.html().get(), ContentOrigin.ARCHIVE, Instant.now(), CONTENT_VERSION);
+                fresh.replaceImage(original.imageUrl());
+            });
         } else {
             String reason = "Original page: " + original.failure() + ". archive.ph: " + snapshot.failure() + ".";
             log.warn("Article {} ({}) could not be loaded. {}", article.getId(), article.getUrl(), reason);
-            store(articleId, article, fresh -> fresh.cacheFailure(reason, Instant.now(), CONTENT_VERSION));
+            store(articleId, article, fresh -> {
+                fresh.cacheFailure(reason, Instant.now(), CONTENT_VERSION);
+                fresh.replaceImage(original.imageUrl());
+            });
         }
     }
 

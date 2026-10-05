@@ -59,4 +59,26 @@ class ArticleContentFetcherTest {
 
         assertThat(fetcher.fetchReadable(URL).html()).isEmpty();
     }
+
+    @Test
+    void carriesTheMainImageThePageDeclares() throws IOException {
+        String page = Pages.articleHtml("A readable full paragraph of text.", 40)
+                .replace("<html>", "<html><head><meta property=\"og:image\" content=\"https://a.com/main.jpg\"></head>");
+        when(http.get(URL)).thenReturn(Pages.html(page, URL));
+
+        assertThat(fetcher.fetchReadable(URL).imageUrl()).isEqualTo("https://a.com/main.jpg");
+    }
+
+    @Test
+    void aPaywalledPageStillReportsItsMainImage() throws IOException {
+        String page = "<html><head><meta property=\"og:image\" content=\"https://a.com/main.jpg\">"
+                + "<script type=\"application/ld+json\">{\"isAccessibleForFree\": false}</script></head>"
+                + "<body><article><p>" + "A paragraph of text. ".repeat(20) + "</p></article></body></html>";
+        when(http.get(URL)).thenReturn(Pages.html(page, URL));
+
+        ContentAttempt attempt = fetcher.fetchReadable(URL);
+
+        assertThat(attempt.html()).isEmpty();
+        assertThat(attempt.imageUrl()).isEqualTo("https://a.com/main.jpg");
+    }
 }
