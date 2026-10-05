@@ -317,4 +317,31 @@ class ContentExtractorTest {
 
         assertThat(extractor.extract(html, "https://blog.com/p").html()).doesNotContain("rel.jpg");
     }
+
+    @Test
+    void exposesTheMainImageThePageDeclares() {
+        String html = "<html><head><meta property=\"og:image\" content=\"/img/main.jpg\"></head><body><article><p>"
+                + BODY + "</p></article></body></html>";
+
+        assertThat(extractor.extract(html, "https://blog.com/p").pageImage()).isEqualTo("https://blog.com/img/main.jpg");
+    }
+
+    @Test
+    void fallsBackToTheTwitterCardImageAndIsNullWithoutAny() {
+        String twitter = "<html><head><meta name=\"twitter:image\" content=\"https://cdn.com/t.jpg\"></head><body><article><p>"
+                + BODY + "</p></article></body></html>";
+        String none = "<html><body><article><p>" + BODY + "</p></article></body></html>";
+
+        assertThat(extractor.extract(twitter, "https://blog.com/p").pageImage()).isEqualTo("https://cdn.com/t.jpg");
+        assertThat(extractor.extract(none, "https://blog.com/p").pageImage()).isNull();
+    }
+
+    @Test
+    void firstImageUrlSkipsAuthorPhotosAndLazyPlaceholders() {
+        String html = "<img class=\"journalistInfo__photo\" width=\"74\" src=\"/author.jpg\">"
+                + "<img class=\"opening__placeholder\" data-src=\"/tiny.jpg\">"
+                + "<img class=\"opening__img\" data-src=\"/post.jpg\">";
+
+        assertThat(ContentExtractor.firstImageUrl(html, "https://blog.com/p")).isEqualTo("https://blog.com/post.jpg");
+    }
 }

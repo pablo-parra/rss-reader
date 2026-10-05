@@ -60,7 +60,8 @@ public class ContentExtractor {
             "cookie", "cookies", "consent", "modal", "popup");
 
     private static final Set<String> IMAGE_NOISE_TOKENS =
-            Set.of("avatar", "icon", "logo", "emoji", "sprite", "badge", "gravatar");
+            Set.of("avatar", "icon", "logo", "emoji", "sprite", "badge", "gravatar", "placeholder",
+                    "author", "journalist", "byline", "profile");
 
     private static final List<String> NOISE_HEADINGS = List.of(
             "related", "related articles", "related posts", "related stories", "related reading",
@@ -89,6 +90,8 @@ public class ContentExtractor {
         boolean declaredPaywalled = doc.select("script[type=application/ld+json]").stream()
                 .anyMatch(script -> NOT_FREE.matcher(script.data()).find());
 
+        String pageImage = pageImage(doc);
+
         doc.select(STRIP_TAGS).remove();
         Element container = pickContainer(doc);
 
@@ -99,7 +102,23 @@ public class ContentExtractor {
         cleanContainer(container);
 
         String clean = Jsoup.clean(container.html(), baseUrl, SAFELIST);
-        return new ExtractedContent(clean, container.text().length(), declaredPaywalled, markers);
+        return new ExtractedContent(clean, container.text().length(), declaredPaywalled, markers, pageImage);
+    }
+
+    /** The main image the page itself declares (Open Graph, then Twitter card), as an absolute http(s) URL, or null. */
+    private static String pageImage(Document doc) {
+        for (String selector : List.of("meta[property=og:image]", "meta[name=og:image]", "meta[name=twitter:image]",
+                "meta[property=twitter:image]")) {
+            Element meta = doc.selectFirst(selector);
+            if (meta == null) {
+                continue;
+            }
+            String absolute = meta.absUrl("content");
+            if (absolute.startsWith("http://") || absolute.startsWith("https://")) {
+                return absolute;
+            }
+        }
+        return null;
     }
 
     /** First usable content image of an HTML fragment (absolute URL), or null; used for dashboard thumbnails. */

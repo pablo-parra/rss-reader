@@ -62,7 +62,7 @@ public class ScrapeFetcher {
             String url = anchor.absUrl("href").replaceFirst("#.*$", "");
             String title = anchor.text().trim();
             if (isArticleLink(anchor, url, title, host, pageUrl)) {
-                items.putIfAbsent(url, new FeedItem(url, title, publishedDate(anchor)));
+                items.putIfAbsent(url, new FeedItem(url, title, publishedDate(anchor), null, thumbnail(anchor, page.finalUrl())));
             }
         }
         return List.copyOf(items.values());
@@ -90,6 +90,12 @@ public class ScrapeFetcher {
     private static boolean isPageChrome(Element anchor) {
         Element chrome = anchor.closest(CHROME);
         return chrome != null && chrome.closest("article") == null;
+    }
+
+    /** Thumbnail of the listing card (the anchor's enclosing article), including lazy-loaded images; null if none. */
+    private static String thumbnail(Element anchor, String pageUrl) {
+        Element card = anchor.closest("article");
+        return card == null ? null : ContentExtractor.firstImageUrl(card.outerHtml(), pageUrl);
     }
 
     private static Instant publishedDate(Element anchor) {

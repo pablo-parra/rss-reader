@@ -35,14 +35,15 @@ public class ArticleContentFetcher {
         }
         ExtractedContent content = extractor.extract(page.body(), page.finalUrl());
         if (content.declaredPaywalled()) {
-            return ContentAttempt.failed("the page declares a paywall");
+            return ContentAttempt.failed("the page declares a paywall", content.pageImage());
         }
         if (content.textLength() < MIN_USABLE_TEXT) {
-            return ContentAttempt.failed("no readable article text found (" + content.textLength() + " characters)");
+            return ContentAttempt.failed("no readable article text found (" + content.textLength() + " characters)", content.pageImage());
         }
         if (content.textLength() < minTextLength && content.paywallMarkers()) {
-            return ContentAttempt.failed("paywall detected, only a teaser is visible (" + content.textLength() + " characters)");
+            return ContentAttempt.failed(
+                    "paywall detected, only a teaser is visible (" + content.textLength() + " characters)", content.pageImage());
         }
-        return ContentAttempt.success(content.html());
+        return ContentAttempt.success(content.html(), content.pageImage());
     }
 }
