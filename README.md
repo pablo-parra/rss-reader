@@ -12,7 +12,7 @@ A single-user, local-only web app that shows a daily digest of unread articles f
 - Clean in-app reader (text and the post's own images, featured image first) with links to the original post
 - Reads the full text carried by the feed when available (works for sites that challenge page requests), then the original page, then an existing archive.ph snapshot (plain lookups only, never bypasses a check)
 - Articles that cannot be loaded are logged and marked on the dashboard with a hover explanation
-- OPML import/export (planned, see backlog)
+- OPML import/export from the Sources page (RSS sources only; non-feed sources are reported as left out)
 
 ## Stack
 

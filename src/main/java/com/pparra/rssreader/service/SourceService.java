@@ -70,7 +70,7 @@ public class SourceService {
         }
     }
 
-    private static String normalize(String raw) {
+    static String normalize(String raw) {
         if (raw == null || raw.isBlank()) {
             throw new IllegalArgumentException("A URL is required");
         }
@@ -98,7 +98,7 @@ public class SourceService {
                 + port + path + query;
     }
 
-    private static String hostOf(String url) {
+    static String hostOf(String url) {
         String host = URI.create(url).getHost();
         return host.startsWith("www.") ? host.substring(4) : host;
     }
