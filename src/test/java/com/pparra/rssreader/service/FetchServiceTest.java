@@ -420,4 +420,24 @@ class FetchServiceTest {
         assertThat(gone.getType()).isEqualTo(SourceType.RSS);
         assertThat(gone.getLastFetchError()).startsWith("The URL returns a web page, not a feed");
     }
+
+    @Test
+    void existingArticleWithoutADateGetsTheOneTheSourceNowProvides() throws IOException {
+        Source ana = source("ana", SourceType.SCRAPE);
+        Article existing = new Article(1L, "https://ana.com/p", "P", null, Instant.now());
+        Article dated = new Article(1L, "https://ana.com/q", "Q", Instant.parse("2026-01-01T00:00:00Z"), Instant.now());
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
+        when(scrape.fetch(ana)).thenReturn(List.of(
+                new FeedItem("https://ana.com/p", "P", Instant.parse("2026-10-01T12:00:00Z")),
+                new FeedItem("https://ana.com/q", "Q", Instant.parse("2026-02-02T00:00:00Z"))));
+        when(articles.findUrlsBySourceId(any())).thenReturn(List.of("https://ana.com/p", "https://ana.com/q"));
+        when(articles.findBackfillCandidates(any())).thenReturn(List.of(existing, dated));
+
+        service.fetchAll();
+
+        assertThat(existing.getPublishedAt()).isEqualTo(Instant.parse("2026-10-01T12:00:00Z"));
+        assertThat(dated.getPublishedAt()).isEqualTo(Instant.parse("2026-01-01T00:00:00Z"));
+        verify(articles).save(existing);
+        verify(articles, never()).save(dated);
+    }
 }

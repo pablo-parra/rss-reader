@@ -13,8 +13,9 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     @Query("select a.url from Article a where a.sourceId = :sourceId")
     List<String> findUrlsBySourceId(@Param("sourceId") Long sourceId);
 
-    /** Articles of a source that still lack feed content or a thumbnail, so a fetch can fill them in. */
-    @Query("select a from Article a where a.sourceId = :sourceId and (a.feedContentHtml is null or a.imageUrl is null)")
+    /** Articles of a source that still lack feed content, a thumbnail or a date, so a fetch can fill them in. */
+    @Query("select a from Article a where a.sourceId = :sourceId"
+            + " and (a.feedContentHtml is null or a.imageUrl is null or a.publishedAt is null)")
     List<Article> findBackfillCandidates(@Param("sourceId") Long sourceId);
 
     /** Read-only dashboard rows: the article bodies are not loaded. */

@@ -124,4 +124,37 @@ class ScrapeFetcherTest {
         assertThat(items).extracting(FeedItem::imageUrl)
                 .containsExactly("https://www.news.com/small-720.jpg", null);
     }
+
+    @Test
+    void datesComeFromTheTimeTagThenFromJsonLdThenFromTheUrlPath() throws IOException {
+        page("""
+                <html><head><script type="application/ld+json">
+                {"@graph":[{"@type":"ProfilePage","hasPart":[
+                  {"@type":"Article","url":"https://www.news.com/ld-article-from-structured-data/","datePublished":"2026-10-04T05:00:00+02:00"},
+                  {"@type":"Article","url":"https://www.news.com/time-wins-over-structured-data","datePublished":"2020-01-01T00:00:00Z"}]}]}
+                </script><script type="application/ld+json">{ this is not json</script></head><body>
+                <article><time datetime="2026-09-30T10:00:00Z">x</time>
+                  <h2><a href="/time-wins-over-structured-data">Time wins over structured data</a></h2></article>
+                <article><h2><a href="/ld-article-from-structured-data">Article described by structured data</a></h2></article>
+                <article><h2><a href="/cultura/2026-10-01/dated-in-the-url_4436172/">Article dated only in its URL</a></h2></article>
+                <article><h2><a href="/blog/2026/03/09/dated-with-slashes/">Article dated with slashes in its URL</a></h2></article>
+                <article><h2><a href="/no-date-anywhere-in-this-link">Article without any date at all</a></h2></article>
+                </body></html>""");
+
+        var items = fetcher.fetch(source);
+
+        assertThat(items).extracting(FeedItem::publishedAt).containsExactly(
+                Instant.parse("2026-09-30T10:00:00Z"),
+                Instant.parse("2026-10-04T03:00:00Z"),
+                Instant.parse("2026-10-01T12:00:00Z"),
+                Instant.parse("2026-03-09T12:00:00Z"),
+                null);
+    }
+
+    @Test
+    void anImpossibleDateInTheUrlIsIgnored() throws IOException {
+        page("<html><body><article><h2><a href=\"/news/2026-13-45/not-a-real-date-article\">Article with an impossible date</a></h2></article></body></html>");
+
+        assertThat(fetcher.fetch(source)).singleElement().satisfies(item -> assertThat(item.publishedAt()).isNull());
+    }
 }
