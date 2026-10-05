@@ -24,10 +24,14 @@ public class SchemaMigration {
         addColumnIfMissing("article", "content_failure_reason", "TEXT");
         addColumnIfMissing("article", "feed_content_html", "TEXT");
         addColumnIfMissing("article", "image_url", "TEXT");
+        addColumnIfMissing("source", "last_fetch_error", "TEXT");
     }
 
     private void addColumnIfMissing(String table, String column, String type) {
         List<Map<String, Object>> columns = jdbc.queryForList("PRAGMA table_info(" + table + ")");
+        if (columns.isEmpty()) {
+            return; // the table does not exist yet; schema.sql creates it with every column
+        }
         boolean present = columns.stream().anyMatch(row -> column.equalsIgnoreCase((String) row.get("name")));
         if (!present) {
             jdbc.execute("ALTER TABLE " + table + " ADD COLUMN " + column + " " + type);

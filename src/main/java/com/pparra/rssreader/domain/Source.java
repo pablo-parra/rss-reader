@@ -14,6 +14,8 @@ import java.time.Instant;
 @Table(name = "source")
 public class Source {
 
+    private static final String UNREACHABLE = "The page is unreachable or protected by a bot check";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -32,6 +34,9 @@ public class Source {
 
     private Instant lastFetchedAt;
 
+    @Column(columnDefinition = "TEXT")
+    private String lastFetchError;
+
     @Enumerated(EnumType.STRING)
     private FetchStatus lastFetchStatus;
 
@@ -48,16 +53,27 @@ public class Source {
         this.feedUrl = feedUrl;
         this.createdAt = createdAt;
         this.lastFetchStatus = type == SourceType.UNSUPPORTED ? FetchStatus.UNSUPPORTED : null;
+        this.lastFetchError = type == SourceType.UNSUPPORTED ? UNREACHABLE : null;
     }
 
     public void recordFetch(FetchStatus status, Instant at) {
         this.lastFetchStatus = status;
         this.lastFetchedAt = at;
+        if (status == FetchStatus.OK) {
+            this.lastFetchError = null;
+        }
+    }
+
+    /** Records a failed fetch together with the reason, so it can be shown instead of only a bare ERROR. */
+    public void recordError(String reason, Instant at) {
+        recordFetch(FetchStatus.ERROR, at);
+        this.lastFetchError = reason;
     }
 
     public void markUnsupported(Instant at) {
         this.type = SourceType.UNSUPPORTED;
         recordFetch(FetchStatus.UNSUPPORTED, at);
+        this.lastFetchError = "Blocked by a bot check (Cloudflare or similar)";
     }
 
     /** Applies a fresh type detection, e.g. after a source that was flagged unsupported became reachable again. */
@@ -65,6 +81,7 @@ public class Source {
         this.type = type;
         this.feedUrl = feedUrl;
         this.lastFetchStatus = type == SourceType.UNSUPPORTED ? FetchStatus.UNSUPPORTED : null;
+        this.lastFetchError = type == SourceType.UNSUPPORTED ? UNREACHABLE : null;
     }
 
     public Long getId() {
@@ -93,6 +110,10 @@ public class Source {
 
     public FetchStatus getLastFetchStatus() {
         return lastFetchStatus;
+    }
+
+    public String getLastFetchError() {
+        return lastFetchError;
     }
 
     public Instant getCreatedAt() {

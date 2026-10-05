@@ -99,6 +99,16 @@ class RssFetcherTest {
     }
 
     @Test
+    void aWebPageInsteadOfAFeedIsReportedAsSuch() throws IOException {
+        when(http.get("https://a.com/author")).thenReturn(
+                Pages.html("<!DOCTYPE html><html><body>an author page</body></html>", "https://a.com/author"));
+
+        assertThatThrownBy(() -> fetcher.fetch(source("https://a.com/author", null)))
+                .isInstanceOf(NotAFeedException.class)
+                .hasMessageContaining("web page, not a feed");
+    }
+
+    @Test
     void invalidFeedBodyIsAnIoError() throws IOException {
         when(http.get("https://a.com/feed")).thenReturn(Pages.html("<html>not a feed</html>", "https://a.com/feed"));
 

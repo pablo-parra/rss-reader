@@ -40,6 +40,9 @@ public class RssFetcher {
             throw new IOException("HTTP " + page.status() + " for " + feedUrl);
         }
 
+        if (looksLikeHtml(page)) {
+            throw new NotAFeedException(feedUrl);
+        }
         SyndFeed feed = parse(page.body(), feedUrl);
         List<FeedItem> items = new ArrayList<>();
         for (SyndEntry entry : feed.getEntries()) {
@@ -105,6 +108,13 @@ public class RssFetcher {
 
     private static boolean isImage(String medium, String type) {
         return "image".equals(medium) || (type != null && type.toLowerCase(Locale.ROOT).startsWith("image/"));
+    }
+
+    private static boolean looksLikeHtml(FetchedPage page) {
+        String head = page.body().stripLeading();
+        head = head.substring(0, Math.min(head.length(), 200)).toLowerCase(Locale.ROOT);
+        return head.startsWith("<!doctype html") || head.startsWith("<html")
+                || (page.contentType().toLowerCase(Locale.ROOT).contains("html") && !head.startsWith("<?xml"));
     }
 
     private static SyndFeed parse(String body, String feedUrl) throws IOException {

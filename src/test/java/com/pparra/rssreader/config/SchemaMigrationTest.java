@@ -55,4 +55,17 @@ class SchemaMigrationTest {
 
         assertThat(columns(jdbc).stream().filter("read_at"::equals).count()).isEqualTo(1);
     }
+
+    @Test
+    void addsTheFetchErrorColumnToAnExistingSourceTable() throws Exception {
+        JdbcTemplate jdbc = oldDatabase();
+        jdbc.execute("CREATE TABLE source (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT NOT NULL, name TEXT NOT NULL,"
+                + " type TEXT NOT NULL, created_at TIMESTAMP NOT NULL)");
+        jdbc.update("insert into source (url, name, type, created_at) values ('https://a.com', 'A', 'RSS', 1000)");
+
+        new SchemaMigration(jdbc).migrate();
+
+        assertThat(jdbc.queryForObject("select name from source", String.class)).isEqualTo("A");
+        assertThat(jdbc.queryForObject("select last_fetch_error from source", Object.class)).isNull();
+    }
 }

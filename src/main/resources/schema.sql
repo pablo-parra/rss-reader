@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS source (
     feed_url          TEXT,
     last_fetched_at   TIMESTAMP,
     last_fetch_status TEXT,
+    last_fetch_error  TEXT,
     created_at        TIMESTAMP NOT NULL
 );
 

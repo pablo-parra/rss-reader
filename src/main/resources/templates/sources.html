@@ -59,6 +59,7 @@
                     <small th:if="${source.lastFetchedAt != null}"
                            th:text="${#temporals.format(source.lastFetchedAt, 'yyyy-MM-dd HH:mm')}">time</small>
                     <span th:if="${source.lastFetchStatus == null}">-</span>
+                    <small class="fetch-error" th:if="${source.lastFetchError != null}" th:text="${source.lastFetchError}">reason</small>
                 </td>
                 <td>
                     <form th:if="${source.type.name() == 'UNSUPPORTED'}" th:action="@{/sources/{id}/recheck(id=${source.id})}" method="post"

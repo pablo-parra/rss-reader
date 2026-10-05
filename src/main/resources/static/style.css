@@ -81,3 +81,5 @@ ul.articles.cards li:hover .card-menu, ul.articles.cards li:focus-within .card-m
 .card-menu button:hover { background: #000; border-color: #fff; }
 @media (hover: none) { .card-menu { opacity: 1; transform: none; pointer-events: auto; background: none; position: static; padding: 0 .8rem .7rem; } }
 .anchor { position: absolute; top: 0; left: 0; width: 0; height: 0; scroll-margin-top: 1rem; }
+
+.fetch-error { display: block; color: #b02020; max-width: 28rem; overflow-wrap: anywhere; }

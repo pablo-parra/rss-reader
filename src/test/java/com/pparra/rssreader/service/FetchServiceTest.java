@@ -15,7 +15,10 @@ import com.pparra.rssreader.domain.SourceType;
 import com.pparra.rssreader.fetch.FeedItem;
 import com.pparra.rssreader.fetch.RssFetcher;
 import com.pparra.rssreader.fetch.ScrapeFetcher;
+import com.pparra.rssreader.fetch.NotAFeedException;
 import com.pparra.rssreader.fetch.SourceBlockedException;
+import com.pparra.rssreader.fetch.SourceTypeDetector;
+import com.pparra.rssreader.fetch.SourceTypeDetector.Detection;
 import com.pparra.rssreader.repository.ArticleRepository;
 import com.pparra.rssreader.repository.SourceRepository;
 import java.io.IOException;
@@ -40,8 +43,9 @@ class FetchServiceTest {
     private final RssFetcher rss = mock(RssFetcher.class);
     private final ScrapeFetcher scrape = mock(ScrapeFetcher.class);
     private final PlatformTransactionManager txManager = mock(PlatformTransactionManager.class);
+    private final SourceTypeDetector detector = mock(SourceTypeDetector.class);
     private final FetchService service = new FetchService(
-            sources, articles, rss, scrape, new TransactionTemplate(txManager));
+            sources, articles, rss, scrape, detector, new TransactionTemplate(txManager));
 
     @BeforeEach
     void sourcesExist() {
@@ -345,5 +349,75 @@ class FetchServiceTest {
         FetchSummary summary = service.fetchAll().orElseThrow();
 
         assertThat(summary.sourcesOk()).isEqualTo(2);
+    }
+
+    @Test
+    void aFailedFetchKeepsTheReasonOnTheSource() throws IOException {
+        Source bad = source("bad", SourceType.RSS);
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(bad));
+        when(rss.fetch(bad)).thenThrow(new IOException("HTTP 400 for https://bad.com/feed"));
+
+        service.fetchAll();
+
+        assertThat(bad.getLastFetchStatus()).isEqualTo(FetchStatus.ERROR);
+        assertThat(bad.getLastFetchError()).isEqualTo("HTTP 400 for https://bad.com/feed");
+    }
+
+    @Test
+    void aLaterSuccessfulFetchClearsTheReason() throws IOException {
+        Source ana = source("ana", SourceType.RSS);
+        ana.recordError("HTTP 500", Instant.now());
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(ana));
+        when(rss.fetch(ana)).thenReturn(List.of());
+
+        service.fetchAll();
+
+        assertThat(ana.getLastFetchStatus()).isEqualTo(FetchStatus.OK);
+        assertThat(ana.getLastFetchError()).isNull();
+    }
+
+    @Test
+    void anRssSourceThatReturnsAWebPageIsScrapedWhenThePageHasNoFeed() throws IOException {
+        Source author = source("author", SourceType.RSS);
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(author));
+        when(rss.fetch(author)).thenThrow(new NotAFeedException(author.getUrl()));
+        when(detector.detect(author.getUrl())).thenReturn(new Detection(SourceType.SCRAPE, null));
+        when(scrape.fetch(author)).thenReturn(List.of(new FeedItem("https://author.com/post", "Post", null)));
+
+        FetchSummary summary = service.fetchAll().orElseThrow();
+
+        assertThat(summary).isEqualTo(new FetchSummary(1, 1, 0, 0));
+        assertThat(author.getType()).isEqualTo(SourceType.SCRAPE);
+        assertThat(author.getLastFetchStatus()).isEqualTo(FetchStatus.OK);
+        verify(sources).save(author);
+    }
+
+    @Test
+    void anRssSourceThatReturnsAWebPageUsesTheFeedLinkedFromIt() throws IOException {
+        Source moved = source("moved", SourceType.RSS);
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(moved));
+        when(rss.fetch(moved)).thenThrow(new NotAFeedException(moved.getUrl())).thenReturn(
+                List.of(new FeedItem("https://moved.com/post", "Post", null)));
+        when(detector.detect(moved.getUrl())).thenReturn(new Detection(SourceType.RSS, "https://moved.com/feed"));
+
+        FetchSummary summary = service.fetchAll().orElseThrow();
+
+        assertThat(summary.newArticles()).isEqualTo(1);
+        assertThat(moved.getType()).isEqualTo(SourceType.RSS);
+        assertThat(moved.getFeedUrl()).isEqualTo("https://moved.com/feed");
+    }
+
+    @Test
+    void whenDetectionFindsNothingUsableTheOriginalErrorIsReported() throws IOException {
+        Source gone = source("gone", SourceType.RSS);
+        when(sources.findAllByOrderByNameAsc()).thenReturn(List.of(gone));
+        when(rss.fetch(gone)).thenThrow(new NotAFeedException(gone.getUrl()));
+        when(detector.detect(gone.getUrl())).thenReturn(new Detection(SourceType.UNSUPPORTED, null));
+
+        FetchSummary summary = service.fetchAll().orElseThrow();
+
+        assertThat(summary.failed()).isEqualTo(1);
+        assertThat(gone.getType()).isEqualTo(SourceType.RSS);
+        assertThat(gone.getLastFetchError()).startsWith("The URL returns a web page, not a feed");
     }
 }

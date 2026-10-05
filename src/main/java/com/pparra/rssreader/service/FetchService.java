@@ -5,9 +5,12 @@ import com.pparra.rssreader.domain.FetchStatus;
 import com.pparra.rssreader.domain.Source;
 import com.pparra.rssreader.domain.SourceType;
 import com.pparra.rssreader.fetch.FeedItem;
+import com.pparra.rssreader.fetch.NotAFeedException;
 import com.pparra.rssreader.fetch.RssFetcher;
 import com.pparra.rssreader.fetch.ScrapeFetcher;
 import com.pparra.rssreader.fetch.SourceBlockedException;
+import com.pparra.rssreader.fetch.SourceTypeDetector;
+import com.pparra.rssreader.fetch.SourceTypeDetector.Detection;
 import com.pparra.rssreader.repository.ArticleRepository;
 import com.pparra.rssreader.repository.SourceRepository;
 import java.io.IOException;
@@ -42,6 +45,7 @@ public class FetchService {
     private final ArticleRepository articleRepository;
     private final RssFetcher rssFetcher;
     private final ScrapeFetcher scrapeFetcher;
+    private final SourceTypeDetector detector;
     private final TransactionTemplate transaction;
     private final ReentrantLock running = new ReentrantLock();
 
@@ -50,11 +54,13 @@ public class FetchService {
             ArticleRepository articleRepository,
             RssFetcher rssFetcher,
             ScrapeFetcher scrapeFetcher,
+            SourceTypeDetector detector,
             TransactionTemplate transaction) {
         this.sourceRepository = sourceRepository;
         this.articleRepository = articleRepository;
         this.rssFetcher = rssFetcher;
         this.scrapeFetcher = scrapeFetcher;
+        this.detector = detector;
         this.transaction = transaction;
     }
 
@@ -96,7 +102,7 @@ public class FetchService {
                     skipped++;
                 } catch (IOException | RuntimeException e) {
                     log.warn("Fetching source '{}' failed: {}", source.getName(), e.getMessage());
-                    source.recordFetch(FetchStatus.ERROR, Instant.now());
+                    source.recordError(describe(e), Instant.now());
                     saveIfPresent(source);
                     failed++;
                 }
@@ -110,10 +116,37 @@ public class FetchService {
     private List<FeedItem> download(Source source, Semaphore slots) throws IOException, InterruptedException {
         slots.acquire();
         try {
-            return source.getType() == SourceType.RSS ? rssFetcher.fetch(source) : scrapeFetcher.fetch(source);
+            if (source.getType() != SourceType.RSS) {
+                return scrapeFetcher.fetch(source);
+            }
+            try {
+                return rssFetcher.fetch(source);
+            } catch (NotAFeedException e) {
+                return fetchAfterRedetecting(source, e);
+            }
         } finally {
             slots.release();
         }
+    }
+
+    /**
+     * An "RSS" source whose URL returns a web page (an OPML entry pointing at an author page, or a feed that moved)
+     * is detected again once: a feed linked from the page is used, otherwise the page is scraped. The new type is
+     * saved with the fetch result. When detection finds nothing usable, the original error is reported.
+     */
+    private List<FeedItem> fetchAfterRedetecting(Source source, NotAFeedException original) throws IOException {
+        Detection detection = detector.detect(source.getUrl());
+        if (detection.type() == SourceType.UNSUPPORTED) {
+            throw original;
+        }
+        log.info("Source '{}' returned a web page instead of a feed, now treated as {}", source.getName(), detection.type());
+        source.redetect(detection.type(), detection.feedUrl());
+        return detection.type() == SourceType.RSS ? rssFetcher.fetch(source) : scrapeFetcher.fetch(source);
+    }
+
+    private static String describe(Exception e) {
+        String message = e.getMessage() == null || e.getMessage().isBlank() ? e.getClass().getSimpleName() : e.getMessage();
+        return message.length() > 300 ? message.substring(0, 300) + "..." : message;
     }
 
     private static List<FeedItem> await(Future<List<FeedItem>> download) throws IOException {
