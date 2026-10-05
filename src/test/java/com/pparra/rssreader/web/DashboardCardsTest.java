@@ -53,6 +53,13 @@ class DashboardCardsTest {
         return mvc.perform(get("/")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
     }
 
+    /** Read articles are only listed in a source view, not in "All". */
+    private String sourceView() throws Exception {
+        Long sourceId = sources.findAll().get(0).getId();
+        return mvc.perform(get("/").param("source", String.valueOf(sourceId))).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+    }
+
     @Test
     void articlesWithAnImageAreShownAsCardsWithTheThumbnail() throws Exception {
         article("With picture", "https://ana.com/pic.jpg");
@@ -81,7 +88,7 @@ class DashboardCardsTest {
         articles.save(read);
         Article unread = article("Still unread", "https://ana.com/u.jpg");
 
-        String html = dashboard();
+        String html = sourceView();
 
         assertThat(html).contains("href=\"/articles/" + unread.getId() + "\"");
         assertThat(html).containsPattern("<li class=\"read\"[\\s\\S]*?Already read");

@@ -90,7 +90,8 @@ class FailedArticleVisibilityTest {
         cloudflareBlocksOriginalAndArchiveHasNoSnapshot();
         mvc.perform(get("/articles/" + article.getId()));
 
-        String dashboard = mvc.perform(get("/")).andReturn().getResponse().getContentAsString();
+        String dashboard = mvc.perform(get("/").param("source", String.valueOf(article.getSourceId())))
+                .andReturn().getResponse().getContentAsString();
 
         assertThat(dashboard).containsPattern("class=\"failed-info\"[\\s\\S]*?title=\"Could not be loaded\\. Original page: blocked by a bot challenge");
     }
@@ -102,7 +103,8 @@ class FailedArticleVisibilityTest {
         when(http.get(STORY)).thenReturn(Pages.html(Pages.articleHtml("Readable paragraph of text here.", 40), STORY));
         mvc.perform(get("/articles/" + opened.getId()));
 
-        assertThat(mvc.perform(get("/")).andReturn().getResponse().getContentAsString()).doesNotContain("failed-info");
+        assertThat(mvc.perform(get("/").param("source", String.valueOf(opened.getSourceId()))).andReturn().getResponse()
+                .getContentAsString()).doesNotContain("failed-info");
     }
 
     @Test
@@ -114,7 +116,8 @@ class FailedArticleVisibilityTest {
 
         mvc.perform(post("/articles/" + article.getId() + "/retry"));
 
-        assertThat(mvc.perform(get("/")).andReturn().getResponse().getContentAsString()).doesNotContain("failed-info");
+        assertThat(mvc.perform(get("/").param("source", String.valueOf(article.getSourceId()))).andReturn().getResponse()
+                .getContentAsString()).doesNotContain("failed-info");
         assertThat(articles.findById(article.getId()).orElseThrow().getContentFailureReason()).isNull();
     }
 }

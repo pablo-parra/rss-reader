@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Controller
 @RequestMapping("/articles")
@@ -30,15 +31,20 @@ public class ArticleController {
 
     /** Marks an article read from the dashboard without opening it (no content is loaded). */
     @PostMapping("/{id}/read")
-    public String markRead(@PathVariable Long id) {
+    public String markRead(@PathVariable Long id, @RequestParam(required = false) Long source) {
         articleService.markRead(id);
-        return "redirect:/#article-" + id;
+        return backToDashboard(id, source);
     }
 
     @PostMapping("/{id}/unread")
-    public String markUnread(@PathVariable Long id) {
+    public String markUnread(@PathVariable Long id, @RequestParam(required = false) Long source) {
         articleService.markUnread(id);
-        return "redirect:/#article-" + id;
+        return backToDashboard(id, source);
+    }
+
+    /** Back to the view the user came from: "All", or the source it was filtered by. */
+    private static String backToDashboard(Long articleId, Long source) {
+        return "redirect:/" + (source == null ? "" : "?source=" + source) + "#article-" + articleId;
     }
 
     @PostMapping("/{id}/retry")

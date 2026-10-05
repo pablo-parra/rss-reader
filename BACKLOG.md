@@ -38,17 +38,17 @@ Technical details per story: see [TECH_SPEC.md](TECH_SPEC.md).
 
 ### US-3: View and read the daily unread list
 **As a** reader
-**I want to** see my authors' latest articles grouped by author in a web dashboard, tell read from unread at a glance, and read each article as clean text and images
+**I want to** see my authors' latest articles in a web dashboard, tell read from unread at a glance, and read each article as clean text and images
 **So that** I can quickly catch up, keep track of what I've read, and read without distractions
 
 **Acceptance Criteria:**
-- Dashboard loads and lists articles grouped by author, newest first inside each group, with the author who published most recently at the top
-- Unread articles show an unread marker and bold title; articles I have read stay on the dashboard in gray without the marker (for 7 days after reading), and the unread counts update
-- Clicking an article opens it in the app's reader view and marks it as read, without moving it in the list
+- Dashboard loads and lists articles as tiles, newest first; which articles are listed depends on the selected view (see US-5)
+- Unread articles show an unread marker and bold title; articles I have read are shown in gray without the marker in the source views (see US-5), and the unread counts update
+- Clicking an article opens it in the app's reader view and marks it as read, without moving it in the list of its source view
 - The reader view shows only the title, the article text and the images that belong to the post; it leaves out related articles, share/social buttons, newsletter and subscribe boxes, comments, ads, author boxes, tags, menus and other page furniture
 - The reader view has a link (at the top and at the bottom) to the original post, so I can open it on the blog with all its extra content
-- Hovering a tile on the dashboard reveals a menu inside it to mark the article as read (if unread) or as unread (if read) without opening it; the unread counts update and the tile stays in place
-- The dashboard has the same "Fetch now" button as the sources page and returns to the dashboard with the fetch summary
+- Hovering a tile on the dashboard reveals a menu inside it to mark the article as read (if unread) or as unread (if read) without opening it; the unread counts update and the tile stays in place in a source view (in "All" it leaves the list, since "All" only lists unread articles)
+- The dashboard has the same "Fetch now" button as the sources page and returns to the same dashboard view with the fetch summary
 
 ---
 
@@ -61,3 +61,18 @@ Technical details per story: see [TECH_SPEC.md](TECH_SPEC.md).
 - Uploading an OPML file creates a source for each feed entry, skipping duplicates and invalid entries, and shows how many were added and skipped
 - Exporting downloads a valid OPML file with all my RSS sources, and states how many non-feed sources were left out
 - A malformed or oversized file is rejected with a clear error and changes nothing
+
+---
+
+### US-5: Browse the dashboard by source
+**As a** reader
+**I want to** see a list of my sources with their unread counts on the left of the dashboard, an "All" view with everything unread, and a view per source
+**So that** a long list of sources does not bury me in articles and I can catch up one author at a time
+
+**Acceptance Criteria:**
+- The left panel starts with "All", showing the total number of unread articles, followed by one entry per source that has articles, in alphabetical order, each with its own unread count; a source with no unread articles stays in the list, dimmed, with (0)
+- "All" is the default view. It lists the unread articles of every source as one set of tiles, newest first and, for articles with the same publication date, ordered by source name. Each tile shows the name of its source. Read articles are not shown
+- Clicking a source shows its 10 newest articles, read or unread, newest first, as tiles like the ones in "All" (read ones in gray, without the unread marker). An older unread article is still shown, so the unread count of the source always matches what is on screen
+- The selected entry of the panel is highlighted, and the heading shows the source name with its unread count
+- Marking an article as read or unread, and using "Fetch now", return to the same view (the selected source stays selected). In "All", a tile that is marked as read leaves the list; in a source view it stays in place
+- On a narrow screen the panel is shown above the tiles

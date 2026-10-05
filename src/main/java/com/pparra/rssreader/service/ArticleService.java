@@ -3,8 +3,8 @@ package com.pparra.rssreader.service;
 import com.pparra.rssreader.domain.Article;
 import com.pparra.rssreader.domain.Source;
 import com.pparra.rssreader.repository.ArticleRepository;
+import com.pparra.rssreader.repository.ArticleRepository.SourceCounts;
 import com.pparra.rssreader.repository.SourceRepository;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,15 +25,15 @@ public class ArticleService {
 
     private final ArticleRepository articleRepository;
     private final SourceRepository sourceRepository;
-    private final int readVisibleDays;
+    private final int sourceViewSize;
 
     public ArticleService(
             ArticleRepository articleRepository,
             SourceRepository sourceRepository,
-            @Value("${app.dashboard.read-visible-days}") int readVisibleDays) {
+            @Value("${app.dashboard.source-view-size}") int sourceViewSize) {
         this.articleRepository = articleRepository;
         this.sourceRepository = sourceRepository;
-        this.readVisibleDays = readVisibleDays;
+        this.sourceViewSize = sourceViewSize;
     }
 
     public Article get(Long id) {
@@ -53,19 +54,53 @@ public class ArticleService {
         return article;
     }
 
-    public List<ArticleGroup> dashboardGroups() {
+    /**
+     * The dashboard for one source, or for "All" when {@code sourceId} is null or unknown. "All" lists the unread
+     * articles of every source, newest first and by source name on equal dates. A source lists its newest articles
+     * (read or not) plus any older unread ones, so its unread count always matches what is on screen.
+     */
+    public Dashboard dashboard(Long sourceId) {
         Map<Long, Source> sources = sourceRepository.findAll().stream()
                 .collect(Collectors.toMap(Source::getId, Function.identity()));
-        Instant since = Instant.now().minus(Duration.ofDays(readVisibleDays));
+        Map<Long, Long> unreadBySource = new LinkedHashMap<>();
+        for (SourceCounts counts : articleRepository.countBySource()) {
+            if (sources.containsKey(counts.getSourceId())) {
+                unreadBySource.put(counts.getSourceId(), counts.getUnread());
+            }
+        }
 
-        Map<Long, List<Article>> bySource = articleRepository.findVisibleOnDashboard(since).stream()
-                .filter(article -> sources.containsKey(article.getSourceId()))
-                .sorted(NEWEST_FIRST)
-                .collect(Collectors.groupingBy(Article::getSourceId, LinkedHashMap::new, Collectors.toList()));
-
-        return bySource.entrySet().stream()
-                .map(entry -> new ArticleGroup(sources.get(entry.getKey()), entry.getValue()))
+        List<SourceUnread> entries = unreadBySource.entrySet().stream()
+                .map(entry -> new SourceUnread(sources.get(entry.getKey()), entry.getValue()))
+                .sorted(Comparator.comparing(entry -> entry.source().getName(), String.CASE_INSENSITIVE_ORDER))
                 .toList();
+        long totalUnread = entries.stream().mapToLong(SourceUnread::unread).sum();
+
+        Source selected = sourceId == null ? null : sources.get(sourceId);
+        List<Article> articles = selected == null ? allUnread(sources) : forSource(selected);
+        List<ArticleRow> rows = articles.stream()
+                .map(article -> new ArticleRow(article, sources.get(article.getSourceId())))
+                .toList();
+        return new Dashboard(entries, totalUnread, selected, rows);
+    }
+
+    private List<Article> allUnread(Map<Long, Source> sources) {
+        // newest first; on the same date the source name decides, and the id only breaks the remaining ties
+        Comparator<Article> order = Comparator.comparing(ArticleService::sortKey).reversed()
+                .thenComparing(article -> sources.get(article.getSourceId()).getName(), String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(Article::getId, Comparator.reverseOrder());
+        return articleRepository.findUnreadRows().stream()
+                .filter(article -> sources.containsKey(article.getSourceId()))
+                .sorted(order)
+                .toList();
+    }
+
+    private List<Article> forSource(Source source) {
+        Map<Long, Article> byId = new LinkedHashMap<>();
+        articleRepository.findNewestRowsBySourceId(source.getId(), PageRequest.of(0, sourceViewSize))
+                .forEach(article -> byId.put(article.getId(), article));
+        articleRepository.findUnreadRowsBySourceId(source.getId())
+                .forEach(article -> byId.putIfAbsent(article.getId(), article));
+        return byId.values().stream().sorted(NEWEST_FIRST).toList();
     }
 
     private static Instant sortKey(Article article) {

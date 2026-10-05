@@ -83,3 +83,21 @@ ul.articles.cards li:hover .card-menu, ul.articles.cards li:focus-within .card-m
 .anchor { position: absolute; top: 0; left: 0; width: 0; height: 0; scroll-margin-top: 1rem; }
 
 .fetch-error { display: block; color: #b02020; max-width: 28rem; overflow-wrap: anywhere; }
+
+/* Dashboard: source list on the left */
+main.wide { max-width: 84rem; }
+.dashboard-layout { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 1.5rem; align-items: start; margin-top: 1rem; }
+aside.source-list { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
+aside.source-list ul { list-style: none; margin: 0; padding: 0; }
+aside.source-list a { display: flex; justify-content: space-between; gap: .5rem; padding: .4rem .6rem; border-radius: .4rem;
+    text-decoration: none; color: inherit; }
+aside.source-list a:hover { background: #8882; }
+aside.source-list li.active a { background: #4a90e233; font-weight: 600; }
+aside.source-list li.no-unread .name, aside.source-list li.no-unread .count { opacity: .55; }
+aside.source-list .count { opacity: .7; font-size: .9rem; flex-shrink: 0; }
+aside.source-list .name { overflow-wrap: anywhere; }
+small.source-name { opacity: .8; }
+@media (max-width: 48rem) {
+    .dashboard-layout { grid-template-columns: 1fr; }
+    aside.source-list { position: static; max-height: 14rem; }
+}

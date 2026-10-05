@@ -14,7 +14,7 @@
 
     <th:block th:replace="~{fragments :: flash}"></th:block>
 
-    <form th:replace="~{fragments :: fetchForm('sources')}"></form>
+    <form th:replace="~{fragments :: fetchForm('sources', null)}"></form>
 
     <form class="add" th:action="@{/sources}" method="post">
         <input type="text" name="url" placeholder="Blog or feed URL" required>

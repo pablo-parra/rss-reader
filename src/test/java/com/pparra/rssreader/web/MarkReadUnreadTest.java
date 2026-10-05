@@ -48,8 +48,18 @@ class MarkReadUnreadTest {
                 Instant.parse("2026-01-02T00:00:00Z"), Instant.now()));
     }
 
+    private Long sourceId() {
+        return sources.findAll().get(0).getId();
+    }
+
     private String dashboard() throws Exception {
         return mvc.perform(get("/")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+    }
+
+    /** Read articles are only listed in a source view, not in "All". */
+    private String sourceView() throws Exception {
+        return mvc.perform(get("/").param("source", String.valueOf(sourceId()))).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
     }
 
     @Test
@@ -63,7 +73,8 @@ class MarkReadUnreadTest {
         assertThat(saved.getReadAt()).isNotNull();
         assertThat(saved.getContentOrigin()).isNull();
         verifyNoInteractions(http);
-        assertThat(dashboard()).contains("id=\"article-" + article.getId() + "\"").contains("(all read)");
+        assertThat(sourceView()).contains("id=\"article-" + article.getId() + "\"").contains("(all read)");
+        assertThat(dashboard()).doesNotContain("id=\"article-" + article.getId() + "\"");
     }
 
     @Test
@@ -71,27 +82,45 @@ class MarkReadUnreadTest {
         Article article = article("Read one");
         article.markRead(Instant.now());
         articles.save(article);
-        assertThat(dashboard()).contains("(all read)");
+        assertThat(sourceView()).contains("(all read)");
 
         mvc.perform(post("/articles/" + article.getId() + "/unread")).andExpect(redirectedUrl("/#article-" + article.getId()));
 
         Article saved = articles.findById(article.getId()).orElseThrow();
         assertThat(saved.isRead()).isFalse();
         assertThat(saved.getReadAt()).isNull();
-        assertThat(dashboard()).contains("(1 unread)").containsPattern("<li class=\"unread\"[^>]*>[\\s\\S]*?Read one");
+        assertThat(sourceView()).contains("(1 unread)").containsPattern("<li class=\"unread\"[^>]*>[\\s\\S]*?Read one");
+        assertThat(dashboard()).contains("Read one");
         verifyNoInteractions(http);
     }
 
     @Test
-    void anArticleReadLongAgoComesBackToTheDashboardWhenMarkedUnread() throws Exception {
-        Article article = article("Old read");
-        article.markRead(Instant.now().minusSeconds(30 * 86_400L));
-        articles.save(article);
+    void anArticleOutsideTheTenNewestComesBackWhenMarkedUnread() throws Exception {
+        Article old = articles.save(new Article(sources.save(new Source("https://ana.com", "Ana", SourceType.RSS, null,
+                Instant.now())).getId(), "https://ana.com/old-read", "Old read", Instant.parse("2025-01-01T00:00:00Z"), Instant.now()));
+        old.markRead(Instant.now());
+        articles.save(old);
+        for (int i = 0; i < 10; i++) {
+            article("Newer " + i);
+        }
+        assertThat(sourceView()).doesNotContain("Old read");
         assertThat(dashboard()).doesNotContain("Old read");
 
-        mvc.perform(post("/articles/" + article.getId() + "/unread"));
+        mvc.perform(post("/articles/" + old.getId() + "/unread"));
 
         assertThat(dashboard()).contains("Old read");
+        assertThat(sourceView()).contains("Old read");
+    }
+
+    @Test
+    void markingReadOrUnreadFromASourceViewReturnsToThatSourceView() throws Exception {
+        Article article = article("From a source");
+        Long source = sourceId();
+
+        mvc.perform(post("/articles/" + article.getId() + "/read").param("source", String.valueOf(source)))
+                .andExpect(redirectedUrl("/?source=" + source + "#article-" + article.getId()));
+        mvc.perform(post("/articles/" + article.getId() + "/unread").param("source", String.valueOf(source)))
+                .andExpect(redirectedUrl("/?source=" + source + "#article-" + article.getId()));
     }
 
     @Test
@@ -130,7 +159,7 @@ class MarkReadUnreadTest {
         read.markRead(Instant.now());
         articles.save(read);
 
-        String html = dashboard();
+        String html = sourceView();
 
         assertThat(html).contains("action=\"/articles/" + unread.getId() + "/read\"").contains("Mark as read")
                 .doesNotContain("/articles/" + unread.getId() + "/unread");

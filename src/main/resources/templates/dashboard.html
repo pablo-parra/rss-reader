@@ -8,54 +8,74 @@
     <script th:src="@{/app.js}" defer></script>
 </head>
 <body>
-<main>
+<main class="wide">
     <nav th:replace="~{fragments :: nav('dashboard')}"></nav>
-    <h1>Latest articles <small class="count" th:if="${totalUnread > 0}" th:text="'(' + ${totalUnread} + ' unread)'">(0 unread)</small></h1>
+    <h1 th:if="${dashboard.selected == null}">Latest articles
+        <small class="count" th:if="${dashboard.totalUnread > 0}" th:text="'(' + ${dashboard.totalUnread} + ' unread)'">(0 unread)</small>
+    </h1>
+    <h1 th:if="${dashboard.selected != null}"><span th:text="${dashboard.selected.name}">Author</span>
+        <small class="count" th:if="${dashboard.selectedUnread > 0}" th:text="'(' + ${dashboard.selectedUnread} + ' unread)'">(1 unread)</small>
+        <small class="count" th:if="${dashboard.selectedUnread == 0}">(all read)</small>
+    </h1>
 
     <th:block th:replace="~{fragments :: flash}"></th:block>
 
-    <form th:replace="~{fragments :: fetchForm('dashboard')}"></form>
+    <form th:replace="~{fragments :: fetchForm('dashboard', ${selectedId})}"></form>
 
-    <p class="empty" th:if="${#lists.isEmpty(groups)}">
-        You're all caught up. Hit "Fetch now" for new posts, or
-        <a th:href="@{/sources}">manage your sources</a>.
-    </p>
+    <div class="dashboard-layout">
+        <aside class="source-list" aria-label="Sources">
+            <ul>
+                <li th:classappend="${dashboard.selected == null} ? 'active'">
+                    <a th:href="@{/}"><span class="name">All</span>
+                        <span class="count" th:text="'(' + ${dashboard.totalUnread} + ')'">(0)</span></a>
+                </li>
+                <li th:each="entry : ${dashboard.sources}"
+                    th:classappend="${entry.source.id == selectedId ? (entry.unread == 0 ? 'active no-unread' : 'active') : (entry.unread == 0 ? 'no-unread' : '')}">
+                    <a th:href="@{/(source=${entry.source.id})}"><span class="name" th:text="${entry.source.name}">Author</span>
+                        <span class="count" th:text="'(' + ${entry.unread} + ')'">(0)</span></a>
+                </li>
+            </ul>
+        </aside>
 
-    <section class="author" th:each="group : ${groups}">
-        <h2>
-            <span th:text="${group.source.name}">Author</span>
-            <small class="count" th:if="${group.unreadCount() > 0}" th:text="'(' + ${group.unreadCount()} + ' unread)'">(1 unread)</small>
-            <small class="count" th:if="${group.unreadCount() == 0}">(all read)</small>
-        </h2>
-        <ul class="articles cards">
-            <li th:each="article : ${group.articles}" th:classappend="${article.read} ? 'read' : 'unread'">
-                <span class="anchor" th:id="'article-' + ${article.id}"></span>
-                <img class="thumb" th:if="${article.imageUrl != null}" th:src="${article.imageUrl}" alt=""
-                     loading="lazy" referrerpolicy="no-referrer">
-                <div class="thumb placeholder" th:if="${article.imageUrl == null}" aria-hidden="true"
-                     th:text="${#strings.toUpperCase(#strings.substring(group.source.name, 0, 1))}">A</div>
-                <div class="card-body">
-                    <span class="title">
-                        <span class="flag" th:if="${!article.read}" title="Unread" aria-label="Unread">&#9679;</span>
-                        <span class="flag" th:if="${article.read}" aria-hidden="true"></span>
-                        <a th:href="@{/articles/{id}(id=${article.id})}" data-loading="Opening article..." th:text="${article.title}">Title</a>
-                        <span class="failed-info" th:if="${article.contentUnavailable}"
-                              th:title="'Could not be loaded. ' + (${article.contentFailureReason} ?: 'Open it for details.')"
-                              aria-label="Could not be loaded">&#9432;</span>
-                    </span>
-                    <small th:text="${#temporals.format(article.publishedAt != null ? article.publishedAt : article.fetchedAt, 'yyyy-MM-dd')}">date</small>
-                </div>
-                <div class="card-menu">
-                    <form th:if="${!article.read}" th:action="@{/articles/{id}/read(id=${article.id})}" method="post">
-                        <button type="submit" title="Mark as read without opening it">&#10003; Mark as read</button>
-                    </form>
-                    <form th:if="${article.read}" th:action="@{/articles/{id}/unread(id=${article.id})}" method="post">
-                        <button type="submit" title="Mark as unread again">&#9679; Mark as unread</button>
-                    </form>
-                </div>
-            </li>
-        </ul>
-    </section>
+        <section class="articles-pane">
+            <p class="empty" th:if="${#lists.isEmpty(dashboard.articles) && dashboard.selected == null}">
+                You're all caught up. Hit "Fetch now" for new posts, or
+                <a th:href="@{/sources}">manage your sources</a>.
+            </p>
+            <ul class="articles cards">
+                <li th:each="row : ${dashboard.articles}" th:with="article=${row.article}"
+                    th:classappend="${article.read} ? 'read' : 'unread'">
+                    <span class="anchor" th:id="'article-' + ${article.id}"></span>
+                    <img class="thumb" th:if="${article.imageUrl != null}" th:src="${article.imageUrl}" alt=""
+                         loading="lazy" referrerpolicy="no-referrer">
+                    <div class="thumb placeholder" th:if="${article.imageUrl == null}" aria-hidden="true"
+                         th:text="${#strings.toUpperCase(#strings.substring(row.source.name, 0, 1))}">A</div>
+                    <div class="card-body">
+                        <span class="title">
+                            <span class="flag" th:if="${!article.read}" title="Unread" aria-label="Unread">&#9679;</span>
+                            <span class="flag" th:if="${article.read}" aria-hidden="true"></span>
+                            <a th:href="@{/articles/{id}(id=${article.id})}" data-loading="Opening article..." th:text="${article.title}">Title</a>
+                            <span class="failed-info" th:if="${article.contentUnavailable}"
+                                  th:title="'Could not be loaded. ' + (${article.contentFailureReason} ?: 'Open it for details.')"
+                                  aria-label="Could not be loaded">&#9432;</span>
+                        </span>
+                        <small class="source-name" th:if="${dashboard.selected == null}" th:text="${row.source.name}">Source</small>
+                        <small th:text="${#temporals.format(article.publishedAt != null ? article.publishedAt : article.fetchedAt, 'yyyy-MM-dd')}">date</small>
+                    </div>
+                    <div class="card-menu">
+                        <form th:if="${!article.read}" th:action="@{/articles/{id}/read(id=${article.id})}" method="post">
+                            <input type="hidden" name="source" th:if="${selectedId != null}" th:value="${selectedId}">
+                            <button type="submit" title="Mark as read without opening it">&#10003; Mark as read</button>
+                        </form>
+                        <form th:if="${article.read}" th:action="@{/articles/{id}/unread(id=${article.id})}" method="post">
+                            <input type="hidden" name="source" th:if="${selectedId != null}" th:value="${selectedId}">
+                            <button type="submit" title="Mark as unread again">&#9679; Mark as unread</button>
+                        </form>
+                    </div>
+                </li>
+            </ul>
+        </section>
+    </div>
 </main>
 </body>
 </html>

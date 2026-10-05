@@ -1,14 +1,26 @@
 package com.pparra.rssreader.repository;
 
 import com.pparra.rssreader.domain.Article;
-import java.time.Instant;
 import java.util.List;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ArticleRepository extends JpaRepository<Article, Long> {
+
+    /** Read-only dashboard rows: the article bodies are not loaded, and these instances must never be saved back. */
+    String DASHBOARD_ROW = "select new com.pparra.rssreader.domain.Article(a.id, a.sourceId, a.url, a.title,"
+            + " a.publishedAt, a.fetchedAt, a.read, a.readAt, a.contentOrigin, a.contentFailureReason, a.imageUrl)"
+            + " from Article a ";
+
+    /** Per source: whether it has articles (a row exists) and how many of them are unread. */
+    interface SourceCounts {
+        Long getSourceId();
+
+        long getUnread();
+    }
 
     @Query("select a.url from Article a where a.sourceId = :sourceId")
     List<String> findUrlsBySourceId(@Param("sourceId") Long sourceId);
@@ -18,11 +30,18 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
             + " and (a.feedContentHtml is null or a.imageUrl is null or a.publishedAt is null)")
     List<Article> findBackfillCandidates(@Param("sourceId") Long sourceId);
 
-    /** Read-only dashboard rows: the article bodies are not loaded. */
-    @Query("select new com.pparra.rssreader.domain.Article(a.id, a.sourceId, a.url, a.title, a.publishedAt, a.fetchedAt,"
-            + " a.read, a.readAt, a.contentOrigin, a.contentFailureReason, a.imageUrl)"
-            + " from Article a where a.read = false or a.readAt >= :since")
-    List<Article> findVisibleOnDashboard(@Param("since") Instant since);
+    @Query(DASHBOARD_ROW + "where a.read = false")
+    List<Article> findUnreadRows();
+
+    @Query(DASHBOARD_ROW + "where a.sourceId = :sourceId and a.read = false")
+    List<Article> findUnreadRowsBySourceId(@Param("sourceId") Long sourceId);
+
+    @Query(DASHBOARD_ROW + "where a.sourceId = :sourceId order by coalesce(a.publishedAt, a.fetchedAt) desc, a.id desc")
+    List<Article> findNewestRowsBySourceId(@Param("sourceId") Long sourceId, Pageable limit);
+
+    @Query("select a.sourceId as sourceId, sum(case when a.read = false then 1 else 0 end) as unread"
+            + " from Article a group by a.sourceId")
+    List<SourceCounts> countBySource();
 
     @Modifying
     @Query("delete from Article a where a.sourceId = :sourceId")

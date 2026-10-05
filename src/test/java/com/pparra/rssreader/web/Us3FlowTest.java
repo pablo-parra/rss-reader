@@ -62,8 +62,13 @@ class Us3FlowTest {
         return mvc.perform(get("/")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
     }
 
+    private String sourceView(Long sourceId) throws Exception {
+        return mvc.perform(get("/").param("source", String.valueOf(sourceId))).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+    }
+
     @Test
-    void listsUnreadArticlesGroupedByAuthorNewestFirst() throws Exception {
+    void allListsTheUnreadArticlesOfEverySourceNewestFirstWithTheirSourceName() throws Exception {
         Long ana = source("Ana");
         Long bea = source("Bea");
         article(ana, "Ana older post", "2026-01-01T00:00:00Z");
@@ -73,12 +78,13 @@ class Us3FlowTest {
         String html = dashboard();
 
         assertThat(html).contains("Latest articles").contains("(3 unread)");
-        assertThat(html.indexOf("Bea")).isLessThan(html.indexOf("Ana"));
+        assertThat(html.indexOf("Bea latest post")).isLessThan(html.indexOf("Ana newer post"));
         assertThat(html.indexOf("Ana newer post")).isLessThan(html.indexOf("Ana older post"));
+        assertThat(html).containsPattern("source-name[^>]*>Bea<").containsPattern("source-name[^>]*>Ana<");
     }
 
     @Test
-    void openedArticleStaysOnTheDashboardAsReadAndTheUnreadCountDrops() throws Exception {
+    void openedArticleLeavesAllButStaysInItsSourceViewAsReadAndTheUnreadCountDrops() throws Exception {
         Long ana = source("Ana");
         Article open = article(ana, "Open me", "2026-01-02T00:00:00Z");
         article(ana, "Leave me", "2026-01-01T00:00:00Z");
@@ -87,17 +93,19 @@ class Us3FlowTest {
         assertThat(dashboard()).contains("(2 unread)");
         mvc.perform(get("/articles/" + open.getId())).andExpect(status().isOk());
 
-        String after = dashboard();
-        assertThat(after).contains("(1 unread)").contains("Leave me");
-        assertThat(after).containsPattern("<li class=\"read\">[\\s\\S]*?Open me");
-        assertThat(after).containsPattern("<li class=\"unread\">[\\s\\S]*?Leave me");
+        String all = dashboard();
+        assertThat(all).contains("(1 unread)").contains("Leave me").doesNotContain("Open me");
+        String view = sourceView(ana);
+        assertThat(view).contains("(1 unread)").contains("Leave me");
+        assertThat(view).containsPattern("<li class=\"read\">[\\s\\S]*?Open me");
+        assertThat(view).containsPattern("<li class=\"unread\">[\\s\\S]*?Leave me");
         Article saved = articles.findById(open.getId()).orElseThrow();
         assertThat(saved.isRead()).isTrue();
         assertThat(saved.getReadAt()).isNotNull();
     }
 
     @Test
-    void readingKeepsTheArticleInPlaceInsteadOfReordering() throws Exception {
+    void readingKeepsTheArticleInPlaceInTheSourceViewInsteadOfReordering() throws Exception {
         Long ana = source("Ana");
         Article newer = article(ana, "Newer post", "2026-01-02T00:00:00Z");
         article(ana, "Older post", "2026-01-01T00:00:00Z");
@@ -105,27 +113,58 @@ class Us3FlowTest {
 
         mvc.perform(get("/articles/" + newer.getId())).andExpect(status().isOk());
 
-        String html = dashboard();
+        String html = sourceView(ana);
         assertThat(html.indexOf("Newer post")).isLessThan(html.indexOf("Older post"));
     }
 
     @Test
-    void articlesReadLongAgoOrNeverOpenedAreHidden() throws Exception {
+    void aSourceViewShowsItsTenNewestArticlesEvenWhenReadAndHidesOlderReadOnes() throws Exception {
+        Long ana = source("Ana");
+        for (int i = 1; i <= 12; i++) {
+            Article article = article(ana, "Post " + String.format("%02d", i), "2026-01-" + String.format("%02d", i) + "T00:00:00Z");
+            if (i != 11) {
+                article.markRead(Instant.now());
+                articles.save(article);
+            }
+        }
+        Article backfilled = article(ana, "Backfilled long ago", "2025-12-01T00:00:00Z");
+        backfilled.markReadSilently();
+        articles.save(backfilled);
+
+        String html = sourceView(ana);
+
+        assertThat(html).contains("Post 12").contains("Post 11").contains("Post 03");
+        assertThat(html).doesNotContain("Post 02").doesNotContain("Post 01").doesNotContain("Backfilled long ago");
+        assertThat(html).contains("(1 unread)");
+    }
+
+    @Test
+    void anOlderUnreadArticleStaysVisibleInItsSourceView() throws Exception {
+        Long ana = source("Ana");
+        article(ana, "Ancient but unread", "2020-01-01T00:00:00Z");
+        for (int i = 1; i <= 10; i++) {
+            Article article = article(ana, "Recent " + String.format("%02d", i), "2026-01-" + String.format("%02d", i) + "T00:00:00Z");
+            article.markRead(Instant.now());
+            articles.save(article);
+        }
+
+        assertThat(sourceView(ana)).contains("Ancient but unread").contains("(1 unread)");
+    }
+
+    @Test
+    void allHidesReadAndSilentlyReadArticles() throws Exception {
         Long ana = source("Ana");
         Article recent = article(ana, "Read yesterday", "2026-01-03T00:00:00Z");
         recent.markRead(Instant.now().minusSeconds(86_400));
         articles.save(recent);
-        Article old = article(ana, "Read last month", "2026-01-02T00:00:00Z");
-        old.markRead(Instant.now().minusSeconds(30 * 86_400L));
-        articles.save(old);
         Article backfilled = article(ana, "Backfilled on first fetch", "2026-01-01T00:00:00Z");
         backfilled.markReadSilently();
         articles.save(backfilled);
+        article(ana, "Still unread", "2026-01-02T00:00:00Z");
 
         String html = dashboard();
 
-        assertThat(html).contains("Read yesterday").contains("(all read)");
-        assertThat(html).doesNotContain("Read last month").doesNotContain("Backfilled on first fetch");
+        assertThat(html).contains("Still unread").doesNotContain("Read yesterday").doesNotContain("Backfilled on first fetch");
     }
 
     @Test
@@ -154,6 +193,15 @@ class Us3FlowTest {
 
         mvc.perform(get("/").flashAttrs(result.getFlashMap()))
                 .andExpect(content().string(Matchers.containsString("Fetched 1 source: 1 new article")));
+    }
+
+    @Test
+    void fetchNowFromASourceViewReturnsToThatSourceView() throws Exception {
+        Long ana = sources.save(new Source("https://ana.com/feed", "Ana", SourceType.RSS, null, Instant.now())).getId();
+        when(http.get("https://ana.com/feed")).thenReturn(Pages.ok("application/rss+xml", FEED, "https://ana.com/feed"));
+
+        mvc.perform(post("/sources/fetch-now").param("from", "dashboard").param("source", String.valueOf(ana)))
+                .andExpect(redirectedUrl("/?source=" + ana));
     }
 
     @Test

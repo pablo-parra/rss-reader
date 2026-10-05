@@ -120,14 +120,20 @@ public class SourceController {
     }
 
     @PostMapping("/sources/fetch-now")
-    public String fetchNow(@RequestParam(defaultValue = "sources") String from, RedirectAttributes redirect) {
+    public String fetchNow(
+            @RequestParam(defaultValue = "sources") String from,
+            @RequestParam(required = false) Long source,
+            RedirectAttributes redirect) {
         fetchService.fetchAll().ifPresentOrElse(
                 summary -> {
                     String text = describe(summary);
                     redirect.addFlashAttribute(summary.failed() > 0 ? "warning" : "message", text);
                 },
                 () -> redirect.addFlashAttribute("warning", "A fetch is already running, try again in a moment"));
-        return from.equals("dashboard") ? "redirect:/" : "redirect:/sources";
+        if (!from.equals("dashboard")) {
+            return "redirect:/sources";
+        }
+        return source == null ? "redirect:/" : "redirect:/?source=" + source;
     }
 
     private static String describe(FetchSummary summary) {

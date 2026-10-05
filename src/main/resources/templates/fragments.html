@@ -13,9 +13,10 @@
     <p class="flash error" th:if="${error}" th:text="${error}"></p>
 </th:block>
 
-<form class="fetch" th:fragment="fetchForm(from)" th:action="@{/sources/fetch-now}" method="post"
+<form class="fetch" th:fragment="fetchForm(from, source)" th:action="@{/sources/fetch-now}" method="post"
       data-loading="Fetching new articles... this can take a few seconds">
     <input type="hidden" name="from" th:value="${from}">
+    <input type="hidden" name="source" th:if="${source != null}" th:value="${source}">
     <button type="submit">Fetch now</button>
     <small>Refreshes every source now, the same as the daily fetch.</small>
 </form>
