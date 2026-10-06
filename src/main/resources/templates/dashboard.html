@@ -22,13 +22,6 @@
 
     <form th:replace="~{fragments :: fetchForm('dashboard', ${selectedId})}"></form>
 
-    <form class="mark-all" th:if="${dashboard.selected != null && dashboard.selectedUnread > 0}"
-          th:action="@{/articles/read-all}" method="post"
-          th:attr="data-confirm='Mark all ' + ${dashboard.selectedUnread} + ' unread articles of ' + ${dashboard.selected.name} + ' as read?'">
-        <input type="hidden" name="source" th:value="${selectedId}">
-        <button type="submit" th:text="'&#10003; Mark all as read (' + ${dashboard.selectedUnread} + ')'">Mark all as read</button>
-    </form>
-
     <div class="dashboard-layout">
         <aside class="source-list" aria-label="Sources">
             <ul>
@@ -45,6 +38,13 @@
         </aside>
 
         <section class="articles-pane">
+            <div class="pane-toolbar" th:if="${dashboard.selected != null && dashboard.selectedUnread > 0}">
+                <form class="mark-all" th:action="@{/articles/read-all}" method="post"
+                      th:attr="data-confirm='Mark all ' + ${dashboard.selectedUnread} + ' unread articles of ' + ${dashboard.selected.name} + ' as read?'">
+                    <input type="hidden" name="source" th:value="${selectedId}">
+                    <button type="submit" th:text="'&#10003; Mark all as read (' + ${dashboard.selectedUnread} + ')'">Mark all as read</button>
+                </form>
+            </div>
             <p class="empty" th:if="${#lists.isEmpty(dashboard.articles) && dashboard.selected == null}">
                 You're all caught up. Hit "Fetch now" for new posts, or
                 <a th:href="@{/sources}">manage your sources</a>.

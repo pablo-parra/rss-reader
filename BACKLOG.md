@@ -88,7 +88,7 @@ Technical details per story: see [TECH_SPEC.md](TECH_SPEC.md).
 **So that** when I start using the app and most of the fetched articles are ones I already read elsewhere, or do not care about, I do not have to mark them one by one
 
 **Acceptance Criteria:**
-- A "Mark all as read" button, showing how many articles it will affect, appears in a source view that has unread articles; it is not shown in "All" or in a source without unread articles
+- A "Mark all as read" button, showing how many articles it will affect, appears at the top of the panel with the tiles (not next to "Fetch now") in a source view that has unread articles; it is not shown in "All" or in a source without unread articles
 - Before anything changes the app asks for confirmation, naming the source and the number of articles; cancelling changes nothing
 - Confirming marks every unread article of that source as read, including the ones older than the 10 shown in its view, and no article of any other source
 - Articles that were already read keep their original read date

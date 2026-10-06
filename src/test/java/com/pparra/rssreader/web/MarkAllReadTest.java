@@ -156,4 +156,19 @@ class MarkAllReadTest {
                 .andExpect(content().string(Matchers.containsString("window.confirm")))
                 .andExpect(content().string(Matchers.containsString("preventDefault")));
     }
+
+    @Test
+    void theButtonSitsInTheTilesPanelAboveTheTilesNotNextToFetchNow() throws Exception {
+        Long ana = source("Ana");
+        article(ana, "One");
+
+        String html = view(ana);
+
+        int panel = html.indexOf("class=\"articles-pane\"");
+        int button = html.indexOf("Mark all as read (1)");
+        int tiles = html.indexOf("class=\"articles cards\"");
+        assertThat(panel).isNotNegative();
+        assertThat(button).isGreaterThan(panel).isLessThan(tiles);
+        assertThat(html.indexOf("class=\"source-list\"")).isLessThan(button);
+    }
 }
