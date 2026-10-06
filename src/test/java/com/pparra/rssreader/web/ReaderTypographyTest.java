@@ -64,6 +64,8 @@ class ReaderTypographyTest {
         assertThat(css).containsPattern("\\.reader-content\\s*\\{[^}]*font-family:\\s*Charter[^}]*Georgia[^}]*serif");
         assertThat(css).containsPattern("\\.reader-content\\s*\\{[^}]*line-height:\\s*1\\.6");
         assertThat(css).containsPattern("\\.reader-content pre[^{]*\\{[^}]*monospace");
+        assertThat(css).containsPattern("\\.reader\\s*\\{\\s*max-width:\\s*48rem");
+        assertThat(css).containsPattern("\\.reader-content\\s*\\{[^}]*font-size:\\s*1\\.3rem");
     }
 
     @Test

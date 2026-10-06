@@ -23,11 +23,11 @@ th, td { text-align: left; padding: .5rem; border-bottom: 1px solid #8884; verti
 .flash.error { background: #b0202033; }
 .link-danger { background: none; border: 0; color: #b02020; text-decoration: underline; padding: 0; }
 .empty { opacity: .7; }
-.reader { max-width: 42rem; }
+.reader { max-width: 48rem; }
 .reader img { max-width: 100%; height: auto; }
 /* Only the post's text uses the reading font; the title and the metadata line keep the interface font. */
 .reader-content { font-family: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
-    font-size: 1.19rem; line-height: 1.65; overflow-wrap: break-word; }
+    font-size: 1.3rem; line-height: 1.65; overflow-wrap: break-word; }
 .reader-content p, .reader-content ul, .reader-content ol, .reader-content blockquote { margin: 0 0 1.1em; }
 .reader-content blockquote { padding-left: 1rem; border-left: 3px solid #8886; font-style: italic; }
 .reader-content pre, .reader-content code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; }
