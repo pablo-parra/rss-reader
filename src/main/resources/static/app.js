@@ -28,6 +28,14 @@
         show(link.getAttribute('data-loading'));
     });
 
+    // A form with data-confirm asks first, and does nothing when the user cancels.
+    document.addEventListener('submit', function (event) {
+        var form = event.target;
+        if (form.hasAttribute && form.hasAttribute('data-confirm') && !window.confirm(form.getAttribute('data-confirm'))) {
+            event.preventDefault();
+        }
+    });
+
     document.addEventListener('submit', function (event) {
         var form = event.target;
         if (!form.hasAttribute || !form.hasAttribute('data-loading') || event.defaultPrevented) {

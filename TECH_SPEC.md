@@ -1,6 +1,6 @@
 # Technical Specification — RSS Reader MVP
 
-Reference document for implementation. Scope is strictly the backlog user stories in [BACKLOG.md](BACKLOG.md) (US-1 manage sources incl. paywall fallback, US-2 daily + on-demand fetch, US-3 view/read unread list, US-4 OPML import/export, US-5 dashboard by source). No functional code included here.
+Reference document for implementation. Scope is strictly the backlog user stories in [BACKLOG.md](BACKLOG.md) (US-1 manage sources incl. paywall fallback, US-2 daily + on-demand fetch, US-3 view/read unread list, US-4 OPML import/export, US-5 dashboard by source, US-6 mark all as read). No functional code included here.
 
 ## 1. High-Level Architecture
 
@@ -116,7 +116,7 @@ rss-reader/
 │   │   │   │   ├── FetchService.java
 │   │   │   │   ├── FetchSummary.java
 │   │   │   │   ├── ArticleContentService.java / ArticleContent.java
-│   │   │   │   ├── ArticleNotFoundException.java
+│   │   │   │   ├── ArticleNotFoundException.java / SourceNotFoundException.java
 │   │   │   │   ├── OpmlService.java
 │   │   │   │   └── OpmlImportSummary.java / OpmlExport.java / InvalidOpmlException.java
 │   │   │   ├── fetch/
@@ -163,6 +163,7 @@ All endpoints are Thymeleaf-rendered pages / form-post actions handled by MVC co
 | `GET` | `/articles/{id}` | US-1, US-3 | In-app reader: marks the article read (first time sets `readAt`) and renders its cleaned content via `ArticleContentService` (original page, or archive.ph snapshot when blocked) with links to the original post |
 | `GET` | `/sources` | US-1 | List all sources with type/status |
 | `POST` | `/articles/{id}/read` | US-3 | Marks the article read without loading its content (first time sets `readAt`), then redirects to `/#article-{id}` (or `/?source={id}#article-{id}` when the optional `source` parameter is sent) so the dashboard returns to the same view and tile |
+| `POST` | `/articles/read-all` | US-6 | Marks every unread article of the source given in the required `source` parameter as read (one `update` statement, `readAt` = now; articles already read are untouched), then redirects to `/?source={id}` with a flash message with the count. Unknown source: 404; missing parameter: 400. Never on GET |
 | `POST` | `/articles/{id}/unread` | US-3 | Marks the article unread (`read = false`, `readAt = null`), so it shows again as unread even if it had been read long ago; same redirect, `source` parameter included |
 | `POST` | `/sources` | US-1 | Add a new source (body: `url`, `name`); triggers type detection |
 | `POST` | `/sources/{id}/delete` | US-1 | Removes source (and cascade-deletes its articles) |
@@ -176,6 +177,7 @@ All endpoints are Thymeleaf-rendered pages / form-post actions handled by MVC co
 - `ArticleService.dashboard(sourceId)` returns a `Dashboard`: the source list (`SourceUnread` per source that has articles, alphabetical, from one `group by` query), the total unread count, the selected source (null for "All") and the tiles (`ArticleRow` = article + source). Articles whose source no longer exists are ignored.
 - "All": every unread article, sorted by `publishedAt` (fallback `fetchedAt`) descending, then source name (case-insensitive), then id. A source view: the newest `app.dashboard.source-view-size` (default 10) articles of the source, read or not, plus every unread one, newest first. The unread count of a source therefore always matches what is shown. The old rule that kept read articles for 7 days (`app.dashboard.read-visible-days`) was removed.
 - Dashboard queries use a JPQL constructor expression that fills a read-only `Article` without the large HTML columns; these instances are never saved.
+- US-6: `dashboard.html` shows a `form.mark-all` ("Mark all as read (N)") only in a source view with unread articles. The form carries `data-confirm`; `app.js` asks with `window.confirm` on submit and cancels the submit (before the loading overlay appears) when declined.
 - Order never depends on read state, so opening an article leaves it in place in a source view; it only changes appearance (`li.unread`: dot flag and bold title; `li.read`: gray title, no flag). In "All" a read article simply drops out on the next load.
 - `Article.markRead(Instant)` sets `read`/`readAt` the first time only. Articles stored as read by the first-fetch cap use `markReadSilently()` (no `readAt`), so they are never shown.
 - `dashboard.html` has the source list on the left (`aside.source-list`, stacked above the tiles under 48rem) and shows the articles as a grid of cards (`ul.articles.cards`): thumbnail (`Article.imageUrl`, lazy-loaded with `referrerpolicy=no-referrer`) or a letter placeholder tile when there is none, bold title with unread dot (gray when read), date, and the failure marker; the whole card is the link to `/articles/{id}`. Each tile has a `.card-menu` inside it with one button: "Mark as read" for unread articles, "Mark as unread" for read ones (POST forms, never GET). The menu is revealed on `:hover` and `:focus-within`, and always visible on touch devices (`@media (hover: none)`). `Article.markUnread()` resets `read` and `readAt`; `ArticleService.markUnread(id)` is its transactional wrapper, mirroring `markRead(id)`. Existing articles get their thumbnail when a fetch backfills it or when they are first opened. Empty state links to the sources page. `fragments.html` holds the `nav`, `flash` and `fetchForm(from, source)` fragments shared with the sources page, so the "Fetch now" button exists once; the dashboard passes the selected source so the redirect returns to the same view (`POST /sources/fetch-now` accepts the optional numeric `source`). In "All" each card also shows the source name. No pagination.
@@ -250,7 +252,7 @@ Constraints:
 
 - `SourceService`: `create(url, name)`, `list()`, `delete(id)`
 - `OpmlService`: `importOpml(InputStream)` returns an `OpmlImportSummary` (added / skipped duplicates / skipped invalid) and throws `InvalidOpmlException` (empty, over 2 MB, malformed, not OPML, or any DOCTYPE) before storing anything; `exportOpml()` returns an `OpmlExport` (XML, exported count, left-out count)
-- `ArticleService`: `dashboard(sourceId)`, `markRead(id)`, `markUnread(id)`
+- `ArticleService`: `dashboard(sourceId)`, `markRead(id)`, `markUnread(id)`, `markAllRead(sourceId)` (transactional bulk update through `ArticleRepository.markAllReadBySourceId`; throws `SourceNotFoundException` for an unknown source)
 - `ArticleContentService`: `load(articleId)` returns the cached or freshly fetched content plus its origin and failure reason (feed content, then original page, then archive.ph); `retry(articleId)` clears an `UNAVAILABLE` result and re-runs the flow
 - `FetchService`: `fetchAll()` returns `Optional<FetchSummary>` (empty when a run is already in progress) — iterates non-`UNSUPPORTED` sources, delegates to `RssFetcher`/`ScrapeFetcher`, inserts new `Article` rows, updates `Source.lastFetchedAt`/`lastFetchStatus`
 - `DailyFetchJob`: `@Scheduled(cron = "${app.fetch.cron}")` wrapper (default `0 0 7 * * *`) that calls `FetchService.fetchAll()` and logs the summary

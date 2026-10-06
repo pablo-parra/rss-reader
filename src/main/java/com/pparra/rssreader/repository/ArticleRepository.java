@@ -1,6 +1,7 @@
 package com.pparra.rssreader.repository;
 
 import com.pparra.rssreader.domain.Article;
+import java.time.Instant;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -42,6 +43,11 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     @Query("select a.sourceId as sourceId, sum(case when a.read = false then 1 else 0 end) as unread"
             + " from Article a group by a.sourceId")
     List<SourceCounts> countBySource();
+
+    /** Marks every unread article of a source as read now; returns how many changed. */
+    @Modifying
+    @Query("update Article a set a.read = true, a.readAt = :at where a.sourceId = :sourceId and a.read = false")
+    int markAllReadBySourceId(@Param("sourceId") Long sourceId, @Param("at") Instant at);
 
     @Modifying
     @Query("delete from Article a where a.sourceId = :sourceId")

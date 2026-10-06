@@ -54,6 +54,15 @@ public class ArticleService {
         return article;
     }
 
+    /** Marks every unread article of a source as read in one statement; returns how many were unread. */
+    @Transactional
+    public int markAllRead(Long sourceId) {
+        if (!sourceRepository.existsById(sourceId)) {
+            throw new SourceNotFoundException(sourceId);
+        }
+        return articleRepository.markAllReadBySourceId(sourceId, Instant.now());
+    }
+
     /**
      * The dashboard for one source, or for "All" when {@code sourceId} is null or unknown. "All" lists the unread
      * articles of every source, newest first and by source name on equal dates. A source lists its newest articles

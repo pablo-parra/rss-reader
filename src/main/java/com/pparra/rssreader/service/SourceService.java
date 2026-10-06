@@ -45,6 +45,10 @@ public class SourceService {
         }
     }
 
+    public Source get(Long id) {
+        return sourceRepository.findById(id).orElseThrow(() -> new SourceNotFoundException(id));
+    }
+
     public List<Source> list() {
         return sourceRepository.findAllByOrderByNameAsc();
     }

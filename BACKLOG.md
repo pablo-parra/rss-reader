@@ -79,3 +79,18 @@ Technical details per story: see [TECH_SPEC.md](TECH_SPEC.md).
 - The selected entry of the panel is highlighted, and the heading shows the source name with its unread count
 - Marking an article as read or unread, and using "Fetch now", return to the same view (the selected source stays selected). In "All", a tile that is marked as read leaves the list; in a source view it stays in place
 - On a narrow screen the panel is shown above the tiles
+
+---
+
+### US-6: Mark all articles of a source as read
+**As a** reader
+**I want to** mark all the unread articles of a source as read with one click
+**So that** when I start using the app and most of the fetched articles are ones I already read elsewhere, or do not care about, I do not have to mark them one by one
+
+**Acceptance Criteria:**
+- A "Mark all as read" button, showing how many articles it will affect, appears in a source view that has unread articles; it is not shown in "All" or in a source without unread articles
+- Before anything changes the app asks for confirmation, naming the source and the number of articles; cancelling changes nothing
+- Confirming marks every unread article of that source as read, including the ones older than the 10 shown in its view, and no article of any other source
+- Articles that were already read keep their original read date
+- I return to the same source view with a message saying how many articles were marked (or that there was nothing to mark); the unread counts of the panel and of "All" update, and the articles stay in the source view as read
+

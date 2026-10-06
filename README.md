@@ -9,7 +9,7 @@ A single-user, local-only web app that shows a daily digest of unread articles f
 - Daily scheduled fetch (default 07:00) plus a "Fetch now" button with a summary; sources are downloaded in parallel
 - Dashboard with a source list on the left (unread count per author) and an "All" view of everything unread; image cards (thumbnail from the feed, the listing page or the article's own main image) with unread/read state; a source view shows its 10 newest articles, read or not
 - Scraped sources get article dates from the page (`<time>`, JSON-LD or the URL) when the feed does not provide them
-- Hover a tile to mark an article as read or unread without opening it
+- Hover a tile to mark an article as read or unread without opening it; "Mark all as read" in a source view clears all its unread articles at once (with a confirmation)
 - Loading spinner while articles open or sources are fetched
 - Clean in-app reader (text and the post's own images, featured image first) with links to the original post
 - Reads the full text carried by the feed when available (works for sites that challenge page requests), then the original page, then an existing archive.ph snapshot (plain lookups only, never bypasses a check)

@@ -253,4 +253,22 @@ class ArticleServiceTest {
 
         assertThat(article.getReadAt()).isEqualTo(second);
     }
+
+    @Test
+    void markAllReadUpdatesTheSourceInOneStatementAndReturnsTheCount() {
+        when(sources.existsById(1L)).thenReturn(true);
+        when(articles.markAllReadBySourceId(org.mockito.ArgumentMatchers.eq(1L), any())).thenReturn(7);
+
+        assertThat(service.markAllRead(1L)).isEqualTo(7);
+
+        verify(articles).markAllReadBySourceId(org.mockito.ArgumentMatchers.eq(1L), any(Instant.class));
+    }
+
+    @Test
+    void markAllReadOfAnUnknownSourceChangesNothing() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.markAllRead(42L))
+                .isInstanceOf(SourceNotFoundException.class);
+
+        org.mockito.Mockito.verifyNoInteractions(articles);
+    }
 }

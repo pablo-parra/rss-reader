@@ -84,6 +84,8 @@ ul.articles.cards li:hover .card-menu, ul.articles.cards li:focus-within .card-m
 
 .fetch-error { display: block; color: #b02020; max-width: 28rem; overflow-wrap: anywhere; }
 
+form.mark-all { margin: .75rem 0 0; }
+
 /* Dashboard: source list on the left */
 main.wide { max-width: 84rem; }
 .dashboard-layout { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 1.5rem; align-items: start; margin-top: 1rem; }
