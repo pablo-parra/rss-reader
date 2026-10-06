@@ -180,4 +180,18 @@ class Us5AcceptanceCriteriaTest {
         String html = view(null);
         assertThat(html.indexOf("class=\"source-list\"")).isLessThan(html.indexOf("articles-pane"));
     }
+
+    @Test
+    void theHeadingIsTheHeaderOfTheTilesPanelInBothViews() throws Exception {
+        Long ana = source("Ana");
+        article(ana, "Ana one", "2026-01-01T00:00:00Z");
+
+        for (String html : new String[] {view(null), view(ana)}) {
+            int pane = html.indexOf("class=\"articles-pane\"");
+            int heading = html.indexOf("<h1>");
+            assertThat(heading).isGreaterThan(html.indexOf("class=\"source-list\""));
+            assertThat(heading).isGreaterThan(pane);
+            assertThat(heading).isLessThan(html.indexOf("class=\"articles cards\""));
+        }
+    }
 }

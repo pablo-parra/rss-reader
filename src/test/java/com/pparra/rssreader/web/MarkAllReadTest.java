@@ -158,7 +158,7 @@ class MarkAllReadTest {
     }
 
     @Test
-    void theButtonSitsInTheTilesPanelAboveTheTilesNotNextToFetchNow() throws Exception {
+    void theSourceTitleAndTheButtonShareTheHeaderOfTheTilesPanelAboveTheTiles() throws Exception {
         Long ana = source("Ana");
         article(ana, "One");
 
@@ -167,8 +167,11 @@ class MarkAllReadTest {
         int panel = html.indexOf("class=\"articles-pane\"");
         int button = html.indexOf("Mark all as read (1)");
         int tiles = html.indexOf("class=\"articles cards\"");
+        int title = html.indexOf("<h1>");
         assertThat(panel).isNotNegative();
+        assertThat(title).isGreaterThan(panel).isLessThan(button);
         assertThat(button).isGreaterThan(panel).isLessThan(tiles);
+        assertThat(html.indexOf("class=\"pane-header\"")).isGreaterThan(panel).isLessThan(title);
         assertThat(html.indexOf("class=\"source-list\"")).isLessThan(button);
     }
 }

@@ -10,14 +10,6 @@
 <body>
 <main class="wide">
     <nav th:replace="~{fragments :: nav('dashboard')}"></nav>
-    <h1 th:if="${dashboard.selected == null}">Latest articles
-        <small class="count" th:if="${dashboard.totalUnread > 0}" th:text="'(' + ${dashboard.totalUnread} + ' unread)'">(0 unread)</small>
-    </h1>
-    <h1 th:if="${dashboard.selected != null}"><span th:text="${dashboard.selected.name}">Author</span>
-        <small class="count" th:if="${dashboard.selectedUnread > 0}" th:text="'(' + ${dashboard.selectedUnread} + ' unread)'">(1 unread)</small>
-        <small class="count" th:if="${dashboard.selectedUnread == 0}">(all read)</small>
-    </h1>
-
     <th:block th:replace="~{fragments :: flash}"></th:block>
 
     <form th:replace="~{fragments :: fetchForm('dashboard', ${selectedId})}"></form>
@@ -38,8 +30,16 @@
         </aside>
 
         <section class="articles-pane">
-            <div class="pane-toolbar" th:if="${dashboard.selected != null && dashboard.selectedUnread > 0}">
-                <form class="mark-all" th:action="@{/articles/read-all}" method="post"
+            <div class="pane-header">
+                <h1 th:if="${dashboard.selected == null}">Latest articles
+                    <small class="count" th:if="${dashboard.totalUnread > 0}" th:text="'(' + ${dashboard.totalUnread} + ' unread)'">(0 unread)</small>
+                </h1>
+                <h1 th:if="${dashboard.selected != null}"><span th:text="${dashboard.selected.name}">Author</span>
+                    <small class="count" th:if="${dashboard.selectedUnread > 0}" th:text="'(' + ${dashboard.selectedUnread} + ' unread)'">(1 unread)</small>
+                    <small class="count" th:if="${dashboard.selectedUnread == 0}">(all read)</small>
+                </h1>
+                <form class="mark-all" th:if="${dashboard.selected != null && dashboard.selectedUnread > 0}"
+                      th:action="@{/articles/read-all}" method="post"
                       th:attr="data-confirm='Mark all ' + ${dashboard.selectedUnread} + ' unread articles of ' + ${dashboard.selected.name} + ' as read?'">
                     <input type="hidden" name="source" th:value="${selectedId}">
                     <button type="submit" th:text="'&#10003; Mark all as read (' + ${dashboard.selectedUnread} + ')'">Mark all as read</button>

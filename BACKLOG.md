@@ -76,7 +76,7 @@ Technical details per story: see [TECH_SPEC.md](TECH_SPEC.md).
 - The left panel starts with "All", showing the total number of unread articles, followed by one entry per source that has articles, in alphabetical order, each with its own unread count; a source with no unread articles stays in the list, dimmed, with (0)
 - "All" is the default view. It lists the unread articles of every source as one set of tiles, newest first and, for articles with the same publication date, ordered by source name. Each tile shows the name of its source. Read articles are not shown
 - Clicking a source shows its 10 newest articles, read or unread, newest first, as tiles like the ones in "All" (read ones in gray, without the unread marker). An older unread article is still shown, so the unread count of the source always matches what is on screen
-- The selected entry of the panel is highlighted, and the heading shows the source name with its unread count
+- The selected entry of the panel is highlighted, and the heading, at the top of the panel with the tiles, shows the source name with its unread count
 - Marking an article as read or unread, and using "Fetch now", return to the same view (the selected source stays selected). In "All", a tile that is marked as read leaves the list; in a source view it stays in place
 - On a narrow screen the panel is shown above the tiles
 
