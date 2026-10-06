@@ -11,7 +11,7 @@ A single-user, local-only web app that shows a daily digest of unread articles f
 - Scraped sources get article dates from the page (`<time>`, JSON-LD or the URL) when the feed does not provide them
 - Hover a tile to mark an article as read or unread without opening it; "Mark all as read" in a source view clears all its unread articles at once (with a confirmation)
 - Loading spinner while articles open or sources are fetched
-- Clean in-app reader (text and the post's own images, featured image first) with links to the original post
+- Clean in-app reader (text and the post's own images, featured image first) with links to the original post; the article text uses a serif reading font
 - Reads the full text carried by the feed when available (works for sites that challenge page requests), then the original page, then an existing archive.ph snapshot (plain lookups only, never bypasses a check)
 - Articles that cannot be loaded are logged and marked on the dashboard with a hover explanation
 - OPML import/export from the Sources page (RSS sources only; non-feed sources are reported as left out)

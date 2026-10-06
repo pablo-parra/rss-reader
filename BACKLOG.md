@@ -49,6 +49,7 @@ Technical details per story: see [TECH_SPEC.md](TECH_SPEC.md).
 - Clicking an article opens it in the app's reader view and marks it as read, without moving it in the list of its source view
 - The reader view shows only the title, the article text and the images that belong to the post; it leaves out related articles, share/social buttons, newsletter and subscribe boxes, comments, ads, author boxes, tags, menus and other page furniture
 - When I open an article, its tile picture becomes the post's own main image (never the author's photo or a site logo)
+- The article text is set in a serif reading font (Charter, falling back to Georgia) at a larger size with comfortable line spacing, while the title and the link line keep the interface font, so the post's text stands apart from the app's own text
 - The reader view has a link (at the top and at the bottom) to the original post, so I can open it on the blog with all its extra content
 - Hovering a tile on the dashboard reveals a menu inside it to mark the article as read (if unread) or as unread (if read) without opening it; the unread counts update and the tile stays in place in a source view (in "All" it leaves the list, since "All" only lists unread articles)
 - The dashboard has the same "Fetch now" button as the sources page and returns to the same dashboard view with the fetch summary

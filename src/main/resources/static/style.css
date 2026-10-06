@@ -25,6 +25,13 @@ th, td { text-align: left; padding: .5rem; border-bottom: 1px solid #8884; verti
 .empty { opacity: .7; }
 .reader { max-width: 42rem; }
 .reader img { max-width: 100%; height: auto; }
+/* Only the post's text uses the reading font; the title and the metadata line keep the interface font. */
+.reader-content { font-family: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+    font-size: 1.19rem; line-height: 1.65; overflow-wrap: break-word; }
+.reader-content p, .reader-content ul, .reader-content ol, .reader-content blockquote { margin: 0 0 1.1em; }
+.reader-content blockquote { padding-left: 1rem; border-left: 3px solid #8886; font-style: italic; }
+.reader-content pre, .reader-content code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; }
+.reader-content pre { overflow-x: auto; }
 .reader-meta { opacity: .7; font-size: .9rem; }
 .notice { padding: .6rem .8rem; border-radius: .4rem; background: #b4540033; }
 h1 .count, h2 .count { font-size: .9rem; font-weight: 400; opacity: .7; }
