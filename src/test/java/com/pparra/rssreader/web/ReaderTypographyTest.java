@@ -65,4 +65,14 @@ class ReaderTypographyTest {
         assertThat(css).containsPattern("\\.reader-content\\s*\\{[^}]*line-height:\\s*1\\.6");
         assertThat(css).containsPattern("\\.reader-content pre[^{]*\\{[^}]*monospace");
     }
+
+    @Test
+    void staticFilesAreAlwaysRevalidatedSoANewBuildIsNeverShownWithAStaleStylesheet() throws Exception {
+        mvc.perform(get("/style.css")).andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Cache-Control", org.hamcrest.Matchers.containsString("no-cache")));
+        mvc.perform(get("/app.js")).andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Cache-Control", org.hamcrest.Matchers.containsString("no-cache")));
+    }
 }
