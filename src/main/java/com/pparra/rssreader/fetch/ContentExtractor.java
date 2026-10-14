@@ -79,7 +79,7 @@ public class ContentExtractor {
             "h2", "h3", "h4", "h5", "h6", "strong", "em", "b", "i");
 
     private static final Safelist SAFELIST = Safelist.relaxed()
-            .addTags("figure", "figcaption")
+            .addTags("figure", "figcaption", "aside")
             .addEnforcedAttribute("a", "rel", "nofollow noopener noreferrer")
             .addEnforcedAttribute("a", "target", "_blank")
             .addEnforcedAttribute("img", "loading", "lazy")
@@ -227,6 +227,7 @@ public class ContentExtractor {
         removeLinkHeavyBlocks(container, total);
         cleanImages(container);
         pruneEmpty(container);
+        MetadataMarker.mark(container);
     }
 
     private static void removeDescendants(Element container, Elements doomed) {

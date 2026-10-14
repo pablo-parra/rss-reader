@@ -113,3 +113,10 @@ small.source-name { opacity: .8; }
     .dashboard-layout { grid-template-columns: 1fr; }
     aside.source-list { position: static; max-height: 14rem; }
 }
+
+/* Metadata inside the post (byline, author photo, date, kickers): small, muted, interface font */
+.reader-content aside { font: .85rem/1.4 system-ui, sans-serif; color: #888; margin: .4rem 0; }
+.reader-content aside * { font: inherit; margin: 0; display: inline; }
+.reader-content aside div, .reader-content aside h2, .reader-content aside h3 { display: block; }
+.reader-content aside img { display: block; width: auto; max-width: 3rem; max-height: 3rem; border-radius: 50%; object-fit: cover; margin-bottom: .2rem; }
+.reader-content aside a { color: inherit; }

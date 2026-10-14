@@ -20,7 +20,7 @@ public class ArticleContentService {
 
     private static final Logger log = LoggerFactory.getLogger(ArticleContentService.class);
 
-    public static final int CONTENT_VERSION = 4;
+    public static final int CONTENT_VERSION = 5;
 
     private final ArticleService articleService;
     private final ArticleRepository articleRepository;

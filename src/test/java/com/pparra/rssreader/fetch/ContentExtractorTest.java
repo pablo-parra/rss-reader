@@ -344,4 +344,57 @@ class ContentExtractorTest {
 
         assertThat(ContentExtractor.firstImageUrl(html, "https://blog.com/p")).isEqualTo("https://blog.com/post.jpg");
     }
+
+    private static final String META_BODY = "<p>Un buen día, hace mucho tiempo, un aborigen australiano lanzó un bumerán con tanta fuerza.</p>".repeat(12);
+
+    private static String asides(String html) {
+        return org.jsoup.Jsoup.parse(html).select("aside").text();
+    }
+
+    @Test
+    void wrapsBylineAuthorPhotoDateAndKickerInAsidesWhateverTheClassNames() {
+        String html = "<html><body><article><div class=\"x1\"><img alt=\"Rubén Arranz\" src=\"/a.jpg\">"
+                + "<h2>Por <div><a href=\"/autores/ruben-arranz-6129/\">Rubén Arranz</a></div></h2></div>"
+                + "<div class=\"q\"><div><div>Por <div><a href=\"/autores/ruben-arranz-6129/\">Rubén Arranz</a></div></div>"
+                + "<div><span>14/10/2026 - 05:00</span></div></div>"
+                + "<div><span>EC EXCLUSIVO</span> <a href=\"/g\"><span>Seguir en Google</span></a></div>"
+                + "<div>" + META_BODY + "</div></div></article></body></html>";
+
+        String clean = extractor.extract(html, "https://a.com/x").html();
+
+        assertThat(clean).contains("<aside>");
+        String meta = asides(clean);
+        assertThat(meta).contains("Rubén Arranz").contains("14/10/2026 - 05:00").contains("Seguir en Google");
+        assertThat(meta).doesNotContain("Un buen día");
+        assertThat(org.jsoup.Jsoup.parse(clean).select("aside img")).hasSize(1);
+        assertThat(clean).contains("Un buen día");
+    }
+
+    @Test
+    void recognisesEnglishBylinesAndWordDates() {
+        String html = "<html><body><article><p>By Jane Smith</p><p>October 14, 2026</p>" + META_BODY + "</article></body></html>";
+
+        String meta = asides(extractor.extract(html, "https://a.com/x").html());
+
+        assertThat(meta).contains("By Jane Smith").contains("October 14, 2026");
+    }
+
+    @Test
+    void doesNotMistakeOrdinaryShortParagraphsForMetadata() {
+        String html = "<html><body><article><p>Por la tarde llovió mucho en la ciudad</p>"
+                + "<p>El 14 de octubre de 2026 el Gobierno anunció una reforma de gran calado para el sector</p>" + META_BODY
+                + "</article></body></html>";
+
+        String clean = extractor.extract(html, "https://a.com/x").html();
+
+        assertThat(clean).doesNotContain("<aside>");
+    }
+
+    @Test
+    void leavesAByLikeLineInTheMiddleOfTheArticleAlone() {
+        String html = "<html><body><article>" + META_BODY.repeat(4) + "<p>Por Juan Pérez</p>" + META_BODY.repeat(4)
+                + "</article></body></html>";
+
+        assertThat(extractor.extract(html, "https://a.com/x").html()).doesNotContain("<aside>");
+    }
 }
