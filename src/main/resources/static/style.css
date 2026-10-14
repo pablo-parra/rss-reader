@@ -46,7 +46,8 @@ ul.articles .title { display: flex; gap: .5rem; align-items: baseline; }
 ul.articles li.unread a { font-weight: 600; }
 ul.articles li.read a { color: #8a8a8a; }
 ul.articles li.read small { opacity: .5; }
-.original { display: inline-block; margin: 1rem 0; padding: .4rem .8rem; border: 1px solid #8886; border-radius: .4rem; text-decoration: none; }
+.original, .back { display: inline-block; padding: .4rem .8rem; border: 1px solid #8886; border-radius: .4rem; text-decoration: none; }
+.reader-footer { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
 .failed-info { color: #c0392b; cursor: help; margin-left: .3rem; }
 .failure-reason { font-size: .85rem; opacity: .8; }
 

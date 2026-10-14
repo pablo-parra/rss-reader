@@ -58,6 +58,24 @@ class ReaderTypographyTest {
     }
 
     @Test
+    void theEndOfTheArticleHasABackToDashboardLinkOnTheLeftAndTheOriginalLinkOnTheRight() throws Exception {
+        Long sourceId = sources.save(new Source("https://blog.com", "Blog", SourceType.RSS, null, Instant.now())).getId();
+        Article article = articles.save(new Article(sourceId, "https://blog.com/p", "The title", Instant.now(), Instant.now()));
+        when(http.get(anyString())).thenReturn(Pages.html(Pages.articleHtml("A readable paragraph of the post text.", 40), "https://blog.com/p"));
+
+        String page = mvc.perform(get("/articles/" + article.getId())).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        int footer = page.indexOf("class=\"reader-footer\"");
+        assertThat(footer).isGreaterThan(page.indexOf("class=\"reader-content\""));
+        int back = page.indexOf("class=\"back\"", footer);
+        int original = page.indexOf("class=\"original\"", footer);
+        assertThat(back).isPositive();
+        assertThat(original).isGreaterThan(back);
+        assertThat(page.substring(back, original)).contains("href=\"/\"");
+    }
+
+    @Test
     void theStylesheetGivesTheReadingContainerASerifStackAndComfortableSpacing() throws Exception {
         String css = mvc.perform(get("/style.css")).andReturn().getResponse().getContentAsString();
 

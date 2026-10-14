@@ -51,6 +51,7 @@ Technical details per story: see [TECH_SPEC.md](TECH_SPEC.md).
 - When I open an article, its tile picture becomes the post's own main image (never the author's photo or a site logo)
 - The article text is set in a serif reading font (Charter, falling back to Georgia) at a larger size with comfortable line spacing, while the title and the link line keep the interface font, so the post's text stands apart from the app's own text
 - The reader view has a link (at the top and at the bottom) to the original post, so I can open it on the blog with all its extra content
+- At the end of the article, one line has a "Back to the dashboard" button (left arrow) on the left and the "Read the full post on the original site" button on the right, so I can leave without scrolling to the top
 - Hovering a tile on the dashboard reveals a menu inside it to mark the article as read (if unread) or as unread (if read) without opening it; the unread counts update and the tile stays in place in a source view (in "All" it leaves the list, since "All" only lists unread articles)
 - The dashboard has the same "Fetch now" button as the sources page and returns to the same dashboard view with the fetch summary
 
