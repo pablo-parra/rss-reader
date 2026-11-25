@@ -19,6 +19,8 @@
 
     <properties>
         <java.version>21</java.version>
+        <!-- Boot 3.3's byte-buddy (1.14) cannot read Java 25 class files, so Mockito fails on JDK 25 -->
+        <byte-buddy.version>1.17.8</byte-buddy.version>
     </properties>
 
     <dependencies>
