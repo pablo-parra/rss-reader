@@ -28,7 +28,7 @@ Requires Java 21 and Maven.
 mvn spring-boot:run
 ```
 
-Then open http://localhost:8080. Data is stored in `data/app.db` (created on first run, gitignored).
+Then open http://127.0.0.1:7901. Data is stored in `data/app.db` (created on first run, gitignored).
 
 With Docker:
 
@@ -56,7 +56,7 @@ Set in `src/main/resources/application.properties`:
 
 ## Security notes
 
-Single-user and local-only by design: there is no login or CSRF protection, so do not expose the port to untrusted networks (`docker-compose.yml` publishes 8080 on all interfaces). Server-side fetches refuse loopback and link-local addresses by default (`app.fetch.block-internal-hosts`), and OPML uploads are limited to 2 MB with DOCTYPEs rejected.
+Single-user and local-only by design: there is no login or CSRF protection, so do not expose the port to untrusted networks (`docker-compose.yml` publishes port 7901 on `127.0.0.1` only). Server-side fetches refuse loopback and link-local addresses by default (`app.fetch.block-internal-hosts`), and OPML uploads are limited to 2 MB with DOCTYPEs rejected.
 
 ## Project docs
 

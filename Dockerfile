@@ -15,5 +15,5 @@ WORKDIR /app
 COPY --from=build /build/target/rss-reader-*.jar app.jar
 
 VOLUME ["/app/data"]
-EXPOSE 8080
+EXPOSE 7901
 ENTRYPOINT ["java", "-jar", "app.jar"]
